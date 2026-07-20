@@ -20,6 +20,20 @@ Add a new file to `migrations/`, numbered one higher than the last
 (`009_whatever.sql`), and run `python db/migrate.py` again. Filenames sort in
 run order, so always zero-pad the numeric prefix.
 
+## Editing an already-applied migration
+
+`schema_migrations` tracks by filename only, not content — editing a file
+that's already applied does nothing until its tracking row is removed:
+
+```sql
+DELETE FROM schema_migrations WHERE filename = '008_match_features_views.sql';
+```
+
+then re-run `python db/migrate.py`. This is a deliberate exception, not a
+general pattern — it's what `008`'s placeholder (Phase 1) was reserved for,
+to be filled in with real `CREATE OR REPLACE VIEW` statements once Phase 4
+needed them, without renumbering every migration that already existed.
+
 ## Current migrations
 
 | File | Creates |
@@ -31,4 +45,4 @@ run order, so always zero-pad the numeric prefix.
 | `005_fixtures.sql` | `fixtures` |
 | `006_models.sql` | `models` |
 | `007_predictions.sql` | `predictions` |
-| `008_match_features_views.sql` | placeholder — filled in during Phase 4 |
+| `008_match_features_views.sql` | `team_match_log`, `team_rolling_form`, `team_venue_win_rate`, `team_season_progress`, `prediction_targets`, `season_teams`, `team_standing_by_date`, `head_to_head`, `match_features` |
