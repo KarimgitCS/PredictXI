@@ -281,18 +281,33 @@ and Phase 5's training pipeline needs to handle it the same way.
    row, and loading `artifact_path` back reproduces the same predictions on a
    test row.
 
-### Phase 7 — FastAPI backend
+### Phase 7 — FastAPI backend — DONE
 1. `GET /matches`: list upcoming fixtures (from `fixtures`).
 2. `GET /predict?fixture_id=...`: compute features for that fixture from
-   `match_features`, load the `is_active` model from the registry, return
+   `match_features`, run them through the active model (loaded once at
+   startup into `app.state`, not re-read from disk per request), return
    `{prob_home, prob_draw, prob_away}`, and write a row to `predictions`.
-3. `GET /health`.
-4. Pytest suite using FastAPI's `TestClient` against a disposable test schema.
-5. `api/Dockerfile`; create `docker-compose.yml` with just the `api` service —
-   its `DATABASE_URL` env var points at the hosted Neon/Supabase instance, same
-   as local scripts use. No `db` service: the database was never containerized.
-   **Done when:** `docker compose up` brings up the api container, `curl
-   localhost:8000/predict?fixture_id=...` returns real probabilities.
+3. `GET /health`: a real check (`SELECT 1`) via the connection pool, not a
+   static OK — fails loudly if the one real dependency (the database) is down.
+4. Pytest suite using FastAPI's `TestClient`. Adjusted from the original
+   "disposable test schema" plan: this project uses one hosted free-tier DB
+   for everything, dev included, with no isolated-schema infrastructure ever
+   built — consistent with every other phase's tests in this repo. Any
+   prediction row a test inserts is deleted afterward.
+5. `api/Dockerfile` (`python:3.12-slim`, not this repo's local 3.14 — sidesteps
+   the whole string of version-specific workarounds hit locally; `libgomp1`
+   installed for xgboost, the Linux equivalent of the local `libomp` fix);
+   `docker-compose.yml` with just the `api` service, `DATABASE_URL` pointing
+   at the hosted instance. No `db` service: the database was never
+   containerized.
+   **Done when:** `curl localhost:8000/predict?fixture_id=...` returns real
+   probabilities — verified directly with `uvicorn` (real output:
+   `{"fixture_id":560542,"home_team":"Arsenal","away_team":"Coventry City",
+   "prob_home":0.5427,"prob_draw":0.2124,"prob_away":0.2449,
+   "predicted_outcome":"H","model_name":"xgboost"}`). Docker itself isn't
+   installed in this sandbox, so `docker compose up` needs to be verified on
+   your machine — everything it depends on (the Dockerfile, compose file,
+   and the app underneath) has been verified independently.
 
 ### Phase 8 — Frontend
 1. Plain HTML/CSS/JS, Chart.js via CDN.
