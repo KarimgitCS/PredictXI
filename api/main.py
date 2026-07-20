@@ -1,5 +1,7 @@
 """
 FastAPI app: GET /health, GET /matches, GET /predict, GET /calibration.
+Also serves the frontend as static files at "/" — visit http://localhost:8000/
+for the whole demo (fixture list + calibration chart), not just the API.
 
 Run locally:
     uvicorn api.main:app --reload
@@ -16,11 +18,13 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from api.db import close_pool, get_connection, get_db, init_pool
 from api.routers import matches, predict
 
 REPORTS_DIR = Path(__file__).parent.parent / "reports"
+FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "ml"))
 from model_registry import load_model
@@ -83,3 +87,10 @@ def calibration():
     if not path.exists():
         raise HTTPException(status_code=503, detail="No calibration data yet — run ml/evaluate.py.")
     return json.loads(path.read_text())
+
+
+# Mounted last, at "/" — every API route above is registered first, so it's
+# matched before falling through to this catch-all. Lets `docker compose up`
+# alone serve the whole demo (API + UI) from one container on one port,
+# rather than needing a second manual static-file server.
+app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
