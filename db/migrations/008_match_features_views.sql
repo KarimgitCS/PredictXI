@@ -96,7 +96,7 @@ SELECT fixture_id AS target_id, 'fixture' AS target_type, season,
 FROM fixtures;
 
 -- Every team that appears in a season, whether from a played match or a
--- still-upcoming fixture — the full set "position" needs to rank against.
+-- still-upcoming fixture — the set "position" needs to rank against.
 CREATE OR REPLACE VIEW season_teams AS
 SELECT DISTINCT season, team_id FROM team_match_log
 UNION
@@ -104,39 +104,28 @@ SELECT DISTINCT season, home_team_id AS team_id FROM fixtures
 UNION
 SELECT DISTINCT season, away_team_id AS team_id FROM fixtures;
 
--- 3b. League position, as of every date a feature will actually be needed
--- for. Simplification (documented in PLAN.md): ranks each team by its own
--- most recent prior cumulative points as of that date, rather than trying
--- to sync to a shared "matchday number" across teams that played on
--- different dates — still leakage-safe (every input is strictly prior),
--- just an approximation of a perfectly-synced league table snapshot.
-CREATE OR REPLACE VIEW team_standing_by_date AS
-SELECT
-    pd.season,
-    pd.match_date AS as_of_date,
-    st.team_id,
-    COALESCE(tsp.points_through_match, 0) AS points,
-    COALESCE(tsp.games_through_match, 0) AS games_played,
-    ROUND(
-        COALESCE(tsp.points_through_match, 0)::numeric
-        / NULLIF(COALESCE(tsp.games_through_match, 0), 0),
-        3
-    ) AS ppg,
-    RANK() OVER (
-        PARTITION BY pd.season, pd.match_date
-        ORDER BY COALESCE(tsp.points_through_match, 0) DESC
-    ) AS position
-FROM (SELECT DISTINCT season, match_date FROM prediction_targets) pd
-JOIN season_teams st ON st.season = pd.season
-LEFT JOIN LATERAL (
-    SELECT tsp2.points_through_match, tsp2.games_through_match
-    FROM team_season_progress tsp2
-    WHERE tsp2.team_id = st.team_id
-      AND tsp2.season = pd.season
-      AND tsp2.match_date < pd.match_date
-    ORDER BY tsp2.match_date DESC
-    LIMIT 1
-) tsp ON true;
+-- 3b. League position. Computed on demand per target row (see
+-- match_features below), NOT precomputed for every (season, date) x every
+-- team combination — an earlier version did that eagerly, and it measured
+-- at 21,700 inner-loop iterations and 6-7 SECONDS for a single fixture
+-- lookup (EXPLAIN ANALYZE caught it), because Postgres had to materialize
+-- the full cross-join before filtering down to the one row actually
+-- needed. Computing position only for the two teams in the match actually
+-- being featured cut that to ~50ms — same leakage-safety guarantee (every
+-- input still strictly prior via "<"), same documented simplification
+-- (ranks by each team's own most recent prior cumulative points rather
+-- than syncing to a shared "matchday number" across teams that played on
+-- different dates), just not precomputed for rows nothing will ever query.
+--
+-- match_features computes, per side, "own" points/games via a LATERAL
+-- lookup against team_season_progress, then "position" via a second
+-- LATERAL that counts how many other season_teams have strictly more
+-- points as of the same date (each via its own small LATERAL lookup) —
+-- 1 + that count. COALESCE defaults a team with zero prior matches (new
+-- to the historical window, or before their season opener) to 0 points
+-- rather than NULL, which is what makes preseason fixtures rank sanely
+-- (everyone tied at position 1) instead of every team's own row
+-- collapsing to NULL.
 
 -- 4. Head-to-head: last 5 meetings between this specific pair of teams
 -- (regardless of which one was home in those past meetings), strictly
@@ -202,12 +191,17 @@ SELECT
     away_form.rolling_fouls_5 AS away_rolling_fouls_5,
     away_form.rolling_cards_5 AS away_rolling_cards_5,
 
-    home_standing.position AS home_position,
-    away_standing.position AS away_position,
-    (home_standing.position - away_standing.position) AS position_differential,
-    home_standing.ppg AS home_ppg,
-    away_standing.ppg AS away_ppg,
-    (home_standing.ppg - away_standing.ppg) AS ppg_differential,
+    home_position.position AS home_position,
+    away_position.position AS away_position,
+    (home_position.position - away_position.position) AS position_differential,
+    ROUND(COALESCE(home_own.points_through_match, 0)::numeric
+          / NULLIF(COALESCE(home_own.games_through_match, 0), 0), 3) AS home_ppg,
+    ROUND(COALESCE(away_own.points_through_match, 0)::numeric
+          / NULLIF(COALESCE(away_own.games_through_match, 0), 0), 3) AS away_ppg,
+    (ROUND(COALESCE(home_own.points_through_match, 0)::numeric
+           / NULLIF(COALESCE(home_own.games_through_match, 0), 0), 3)
+     - ROUND(COALESCE(away_own.points_through_match, 0)::numeric
+             / NULLIF(COALESCE(away_own.games_through_match, 0), 0), 3)) AS ppg_differential,
 
     home_venue.win_rate AS home_team_home_win_rate,
     away_venue.win_rate AS away_team_away_win_rate,
@@ -228,14 +222,46 @@ LEFT JOIN LATERAL (
     WHERE trf.team_id = pt.away_team_id AND trf.match_date < pt.match_date
     ORDER BY trf.match_date DESC LIMIT 1
 ) away_form ON true
-LEFT JOIN team_standing_by_date home_standing
-    ON home_standing.season = pt.season
-   AND home_standing.as_of_date = pt.match_date
-   AND home_standing.team_id = pt.home_team_id
-LEFT JOIN team_standing_by_date away_standing
-    ON away_standing.season = pt.season
-   AND away_standing.as_of_date = pt.match_date
-   AND away_standing.team_id = pt.away_team_id
+-- Position/PPG: "own" standing per side, then "position" (rank) per side —
+-- each a LATERAL, computed only for these two specific teams on this one
+-- target row. See the note above 3b for why this replaced an eager
+-- precomputed table.
+LEFT JOIN LATERAL (
+    SELECT tsp.points_through_match, tsp.games_through_match
+    FROM team_season_progress tsp
+    WHERE tsp.team_id = pt.home_team_id AND tsp.season = pt.season AND tsp.match_date < pt.match_date
+    ORDER BY tsp.match_date DESC LIMIT 1
+) home_own ON true
+LEFT JOIN LATERAL (
+    SELECT tsp.points_through_match, tsp.games_through_match
+    FROM team_season_progress tsp
+    WHERE tsp.team_id = pt.away_team_id AND tsp.season = pt.season AND tsp.match_date < pt.match_date
+    ORDER BY tsp.match_date DESC LIMIT 1
+) away_own ON true
+LEFT JOIN LATERAL (
+    SELECT 1 + count(*) AS position
+    FROM season_teams st
+    LEFT JOIN LATERAL (
+        SELECT tsp2.points_through_match
+        FROM team_season_progress tsp2
+        WHERE tsp2.team_id = st.team_id AND tsp2.season = pt.season AND tsp2.match_date < pt.match_date
+        ORDER BY tsp2.match_date DESC LIMIT 1
+    ) other ON true
+    WHERE st.season = pt.season AND st.team_id <> pt.home_team_id
+      AND COALESCE(other.points_through_match, 0) > COALESCE(home_own.points_through_match, 0)
+) home_position ON true
+LEFT JOIN LATERAL (
+    SELECT 1 + count(*) AS position
+    FROM season_teams st
+    LEFT JOIN LATERAL (
+        SELECT tsp2.points_through_match
+        FROM team_season_progress tsp2
+        WHERE tsp2.team_id = st.team_id AND tsp2.season = pt.season AND tsp2.match_date < pt.match_date
+        ORDER BY tsp2.match_date DESC LIMIT 1
+    ) other ON true
+    WHERE st.season = pt.season AND st.team_id <> pt.away_team_id
+      AND COALESCE(other.points_through_match, 0) > COALESCE(away_own.points_through_match, 0)
+) away_position ON true
 LEFT JOIN LATERAL (
     SELECT tvr.win_rate FROM team_venue_win_rate tvr
     WHERE tvr.team_id = pt.home_team_id AND tvr.is_home = true
