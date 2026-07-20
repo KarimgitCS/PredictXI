@@ -9,3 +9,8 @@ python-dotenv==1.0.1
 pandas==3.0.3
 requests==2.32.3
 pytest==8.3.3
+
+# Phase 5: model training
+scikit-learn==1.9.0
+xgboost==3.3.0
+joblib==1.5.3
