@@ -1,0 +1,13 @@
+-- Placeholder — intentionally empty until Phase 4.
+--
+-- This file's number is reserved now so later migrations (if any) don't need
+-- renumbering when Phase 4 fills it in. It will define, in order:
+--   1. team_match_log        (unpivoted home/away perspective per match)
+--   2. rolling form views     (5-match trailing averages, team_id-partitioned,
+--                              ROWS BETWEEN 5 PRECEDING AND 1 PRECEDING — never
+--                              CURRENT ROW, the leakage-safety boundary for
+--                              every rolling feature in this project)
+--   3. season-cumulative position/PPG differential views
+--   4. head-to-head (last 5 meetings) view
+--   5. match_features          (final view joining everything onto matches
+--                               and fixtures)
