@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SoccerIQ — Premier League match predictions</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="page-header">
+    <h1>SoccerIQ</h1>
+    <p class="subtitle">Premier League match outcome predictions, with calibrated probabilities.</p>
+  </header>
+
+  <main>
+    <section class="panel" aria-labelledby="fixtures-heading">
+      <div class="panel-head">
+        <h2 id="fixtures-heading">Upcoming fixtures</h2>
+        <div class="legend" aria-hidden="true">
+          <span class="legend-item"><span class="swatch swatch-home"></span>Home win</span>
+          <span class="legend-item"><span class="swatch swatch-draw"></span>Draw</span>
+          <span class="legend-item"><span class="swatch swatch-away"></span>Away win</span>
+        </div>
+      </div>
+      <p id="fixtures-status" class="status-text">Loading fixtures…</p>
+      <ul id="fixtures-list" class="fixtures-list"></ul>
+    </section>
+
+    <section class="panel" aria-labelledby="calibration-heading">
+      <div class="panel-head">
+        <h2 id="calibration-heading">Model calibration</h2>
+      </div>
+      <p class="panel-description">
+        For matches predicted at, say, 40% confidence, did that outcome actually happen
+        about 40% of the time? A perfectly calibrated model's points sit on the dashed
+        diagonal. Measured on the held-out 2019-2020 test season.
+      </p>
+      <p id="calibration-status" class="status-text">Loading calibration data…</p>
+      <div class="chart-wrap">
+        <canvas id="calibration-chart" role="img" aria-label="Calibration chart: predicted probability vs. actual outcome frequency, for logistic regression and XGBoost"></canvas>
+      </div>
+
+      <details class="table-view">
+        <summary>View as table</summary>
+        <div id="calibration-table-wrap"></div>
+      </details>
+    </section>
+  </main>
+
+  <footer class="page-footer">
+    <p>Portfolio project. Predictions are a rolling-form statistical estimate, not betting advice.</p>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
