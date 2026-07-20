@@ -7,13 +7,18 @@ in either source to one canonical team.
 The canonical `name` chosen here is just an internal display label — it does
 not need to exactly match either source's own spelling, since each source's
 raw string gets its own row in team_aliases pointing at the same team_id.
-That's what makes it safe to not worry about matching football-data.org's
-exact naming convention until Phase 3 actually talks to that API.
 
 ALIAS_MAP['football-data.co.uk'] covers all 36 distinct HomeTeam/AwayTeam
 spellings found across the 2010/11-2019/20 season CSVs (verified by scanning
-every downloaded file — see data/raw/). Phase 3 adds a
-ALIAS_MAP['football-data.org'] section once real API responses are in hand.
+every downloaded file — see data/raw/).
+
+ALIAS_MAP['football-data.org'] covers the 20 teams in the current-season
+standings table, pulled directly from a live API response (their `name`
+field, e.g. "Arsenal FC") rather than guessed. Where a team already existed
+in the historical set, it reuses that canonical name (e.g. "Arsenal FC" ->
+"Arsenal") rather than introducing a second entry for the same club. Teams
+new to this section (promoted since 2019/20, or otherwise not seen in the
+historical CSVs) get a fresh canonical name here.
 """
 
 ALIAS_MAP: dict[str, dict[str, str]] = {
@@ -54,6 +59,28 @@ ALIAS_MAP: dict[str, dict[str, str]] = {
         "West Ham": "West Ham United",
         "Wigan": "Wigan Athletic",
         "Wolves": "Wolverhampton Wanderers",
+    },
+    "football-data.org": {
+        "AFC Bournemouth": "Bournemouth",
+        "Arsenal FC": "Arsenal",
+        "Aston Villa FC": "Aston Villa",
+        "Brentford FC": "Brentford",
+        "Brighton & Hove Albion FC": "Brighton & Hove Albion",
+        "Chelsea FC": "Chelsea",
+        "Coventry City FC": "Coventry City",
+        "Crystal Palace FC": "Crystal Palace",
+        "Everton FC": "Everton",
+        "Fulham FC": "Fulham",
+        "Hull City AFC": "Hull City",
+        "Ipswich Town FC": "Ipswich Town",
+        "Leeds United FC": "Leeds United",
+        "Liverpool FC": "Liverpool",
+        "Manchester City FC": "Manchester City",
+        "Manchester United FC": "Manchester United",
+        "Newcastle United FC": "Newcastle United",
+        "Nottingham Forest FC": "Nottingham Forest",
+        "Sunderland AFC": "Sunderland",
+        "Tottenham Hotspur FC": "Tottenham Hotspur",
     },
 }
 
