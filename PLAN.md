@@ -197,38 +197,64 @@ the view.
    `source='api'`, and `standings_snapshot` reflects the current table —
    re-runnable safely.
 
-### Phase 4 — SQL feature views (the leakage-critical phase)
-Build incrementally, testing each view in isolation before composing the next:
+### Phase 4 — SQL feature views (the leakage-critical phase) — DONE
+Built incrementally, each view tested in isolation before composing the next.
+
+**Leakage-safety mechanism actually implemented** (refined from the original
+"5 PRECEDING AND 1 PRECEDING at match-level" sketch once fixtures entered the
+picture — fixtures have no row of their own to anchor that window to, since
+they haven't been played): rolling windows are computed as **CURRENT-ROW-
+inclusive** over each team's own sequence of played matches (`team_match_log`),
+then read via a `LEFT JOIN LATERAL` that finds the most recent such row with
+`match_date < target.match_date` — strict. That one `<` is the leakage
+boundary, and it works identically whether the target is a historical match
+(its own row shares its date, so `<` skips it and lands on the previous
+match) or a fixture (no row of its own; `<` simply finds the last completed
+match before kickoff). One boundary check, one code path for training data
+and live serving, rather than two different rolling-window strategies.
+
 1. **`team_match_log`**: unpivot `matches` into one row per team per match
    (`UNION ALL` of the home-side and away-side perspective), with
    `team_id, opponent_id, match_date, is_home, points, goals_for, goals_against,
    shots_on_target, corners, fouls, cards`.
-2. **Rolling form views**: for each metric, a window function partitioned by
-   `team_id` (and a second version partitioned by `(team_id, is_home)` for the
-   home/away-specific splits), ordered by `match_date`, with the boundary
-   `ROWS BETWEEN 5 PRECEDING AND 1 PRECEDING` — **never `CURRENT ROW`**. This
-   exact clause is the leakage guard for every rolling feature in this project.
-3. **Position / points-per-game differential**: cumulative points per team
-   per season using `SUM(...) OVER (PARTITION BY team_id, season ORDER BY
-   match_date ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING)`, ranked among
-   that season's teams. Simplification to avoid a rabbit hole: rank uses each
-   team's own strictly-prior match count rather than trying to sync to a
-   shared "matchday number" across teams that played on different dates —
-   still leakage-safe, just an approximation of "current form" rather than a
-   perfectly synced league table snapshot.
-4. **Head-to-head (last 5 meetings)**: self-join `matches` on a symmetric pair
-   key (`LEAST(home_team_id, away_team_id)`, `GREATEST(...)`), ordered by
-   date, same `5 PRECEDING AND 1 PRECEDING` boundary, aggregated into a
-   home/draw/away frequency.
-5. **`match_features`**: final view joining home-team and away-team feature
-   sets onto `matches` (for training) and `fixtures` (for serving), with
-   `result` nullable for upcoming fixtures.
-   **Done when:** a hand-picked test — seed a handful of matches with known,
-   manually-computed expected rolling averages, query the view, assert the
-   numbers match exactly. Also assert structurally: a team's first ≤5
-   appearances have partial/NULL rolling values (proof the window isn't
-   reaching into the future), and no feature for match date `D` differs when
-   you truncate the underlying data to `< D` vs. the full dataset.
+2. **`team_rolling_form`** / **`team_venue_win_rate`**: rolling-5 stat
+   averages partitioned by `team_id` only (carried over season boundaries,
+   per the earlier decision), and venue win rate partitioned by
+   `(team_id, is_home)` — both `ROWS BETWEEN ... AND CURRENT ROW`, safe per
+   the mechanism above.
+3. **`team_season_progress`** / **`team_standing_by_date`**: cumulative
+   points/games expanding within a season, then ranked among that season's
+   teams as of every date a feature is needed for (`prediction_targets` ∪
+   `season_teams`, joined via the same strict-`<` `LATERAL` pattern).
+   Simplification kept as planned: ranks each team by its own most recent
+   prior cumulative points rather than syncing to a shared "matchday number"
+   — still leakage-safe, just an approximation of a perfectly-synced table.
+4. **`head_to_head`**: last 5 meetings between a specific pair of teams
+   (`LEAST`/`GREATEST` for symmetric pairing), strictly before the target's
+   date, aggregated into home/draw/away win-rate.
+5. **`prediction_targets`** unifies `matches` (training, `result` known) and
+   `fixtures` (serving, `result` NULL) into one set of "things needing
+   features" — every view above joins against this, not against `matches`
+   and `fixtures` separately. **`match_features`** is the final join of all
+   of the above onto `prediction_targets`.
+
+**Verified**, not just asserted: a hand-picked case (Arsenal's 6th match of
+2010/11) matches its manually-computed rolling average (2.2) and — critically
+— does *not* match what the match's own 5-window would give (2.0), proving
+the `LATERAL` boundary excludes the target match itself. A team's first-ever
+appearance in the dataset shows `NULL` rolling features, not zero. Most
+importantly: every rolling-form value in `match_features` (all ~4,180 rows,
+both home and away sides) was independently recomputed in pandas via a strict
+`merge_asof(..., allow_exact_matches=False)` and compared row-for-row against
+the SQL view's output — full agreement. Tests live in `db/tests/`.
+
+**Known limitation surfaced by this verification, not a bug:** teams with no
+match history in our tracked period — newly promoted since the 2019/20
+historical cutoff, and not yet backfilled by the live API this preseason
+(Coventry City, Ipswich Town, Nottingham Forest, etc.) — show `NULL` rolling
+form until they accumulate tracked matches. This is exactly the "leave NULL,
+impute only for logreg" situation already decided for the free-tier stat gap,
+and Phase 5's training pipeline needs to handle it the same way.
 
 ### Phase 5 — Model training
 1. `ml/train.py`: pull `match_features` + `result` via SQL. **Split
