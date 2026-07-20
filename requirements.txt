@@ -4,3 +4,8 @@
 # Phase 1: DB migrations
 psycopg2-binary==2.9.12
 python-dotenv==1.0.1
+
+# Phase 2: historical data ETL
+pandas==3.0.3
+requests==2.32.3
+pytest==8.3.3
