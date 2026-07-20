@@ -309,16 +309,51 @@ and Phase 5's training pipeline needs to handle it the same way.
    your machine — everything it depends on (the Dockerfile, compose file,
    and the app underneath) has been verified independently.
 
-### Phase 8 — Frontend
+### Phase 8 — Frontend — DONE
 1. Plain HTML/CSS/JS, Chart.js via CDN.
 2. Fixture list page: each upcoming match with a Home/Draw/Away probability
    bar, fetched from `/matches` + `/predict`.
 3. Calibration chart: predicted-probability bucket vs. actual outcome
-   frequency, sourced from `reports/model_comparison.md`'s underlying data
-   (exported as JSON) or from backtested rows in `predictions` once
-   `actual_outcome` is backfilled.
-   **Done when:** manually tested in a browser against the local API — fixture
-   list renders, probabilities look sane, calibration chart displays.
+   frequency, sourced from `/calibration` (a small new API endpoint serving
+   `reports/calibration_data.json` — Phase 5's evaluation output — directly,
+   so training and serving never show different numbers). Rendered as a
+   scatter (not a connected line) — the bins are pooled across three
+   different outcome classes (H/D/A), and connecting pooled points with a
+   line implied a continuous relationship between what are really three
+   separate curves, producing a misleading zigzag caught during a real
+   headless-browser screenshot check, not just by reading the code.
+
+**Two real bugs found and fixed while actually running this against the
+live API, not just by writing tests:**
+- **`api/db.py` used `psycopg2.pool.SimpleConnectionPool`**, which isn't
+  thread-safe — FastAPI runs sync route handlers in a worker thread pool, so
+  concurrent requests meant concurrent `getconn()`/`putconn()` calls, and the
+  pool's internal bookkeeping corrupted under load (surfaced as intermittent
+  "server closed the connection unexpectedly"). Fixed by switching to
+  `ThreadedConnectionPool` and sizing it (`maxconn=20`) for the frontend's
+  actual concurrency pattern — the fixture list fires one `/predict` call per
+  fixture in parallel (`Promise.all`), so a single page load produces ~12
+  concurrent requests; the original `maxconn=5` hit "connection pool
+  exhausted" under exactly that real load, not just synthetic stress.
+- **A single `/predict` call took 6-7 seconds**, and 10 concurrent calls
+  took 40+ seconds with some timing out — traced with `EXPLAIN ANALYZE` to
+  `team_standing_by_date` (Phase 4): it precomputed league position for
+  *every* `(season, date)` × *every team in that season*, then filtered down
+  to the one row actually needed — 21,700 inner-loop iterations for a single
+  fixture lookup. Restructured `008_match_features_views.sql` to compute
+  position on demand, only for the two teams in the match actually being
+  featured, via the same `LATERAL` pattern already used for rolling
+  form/venue rate. Same leakage-safety guarantee, same documented
+  simplification, ~130x faster (6-7s → ~50ms per fixture; the full bulk
+  query Phase 5's training pipeline uses was never affected — Postgres plans
+  a full-table scan differently than a repeated point lookup, which is why
+  training never surfaced this).
+   **Done when:** manually tested in a headless Chrome browser against the
+   local API and screenshotted (not just curled) — fixture list renders with
+   sane probabilities, calibration chart displays as a clean scatter near
+   the diagonal. Docker itself isn't installed in this sandbox; `uvicorn` +
+   `python -m http.server` stood in for `docker compose up` to verify the
+   same app code.
 
 ### Phase 9 — Polish
 1. README: architecture diagram, setup steps, screenshots/GIF of the frontend.

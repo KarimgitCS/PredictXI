@@ -6,7 +6,9 @@ approach in this repo; see PLAN.md). Any prediction row this suite inserts
 is deleted afterward so repeated test runs don't clutter real data.
 """
 
+import concurrent.futures
 import os
+import time
 
 import psycopg2
 import pytest
@@ -45,6 +47,24 @@ def test_matches_returns_upcoming_fixtures(client):
     assert {"fixture_id", "home_team", "away_team", "kickoff_at"} <= fixtures[0].keys()
 
 
+def test_matches_default_limit_is_10(client):
+    response = client.get("/matches")
+    assert len(response.json()) == 10
+
+
+def test_matches_respects_limit_param(client):
+    response = client.get("/matches", params={"limit": 3})
+    assert len(response.json()) == 3
+
+
+def test_calibration_returns_both_models(client):
+    response = client.get("/calibration")
+    assert response.status_code == 200
+    body = response.json()
+    assert set(body.keys()) == {"logreg", "xgboost"}
+    assert set(body["logreg"].keys()) == {"H", "D", "A"}
+
+
 def test_predict_unknown_fixture_returns_404(client):
     response = client.get("/predict", params={"fixture_id": 999999999})
     assert response.status_code == 404
@@ -73,4 +93,38 @@ def test_predict_returns_calibrated_probabilities_and_logs_prediction(client, db
     finally:
         with db_conn.cursor() as cur:
             cur.execute("DELETE FROM predictions WHERE fixture_id = %s;", (fixture_id,))
+        db_conn.commit()
+
+
+def test_concurrent_predict_calls_all_succeed_quickly(client, db_conn):
+    """Regression test for two real bugs found while building the frontend:
+    (1) SimpleConnectionPool corrupting under concurrent access from
+    FastAPI's worker threads (fixed: ThreadedConnectionPool), and (2)
+    team_standing_by_date precomputing position for every team at every
+    date before filtering to the one row needed — 21,700 loop iterations
+    and 6-7s for a single fixture (fixed: compute position on demand, only
+    for the two teams in the match being featured). This mirrors the
+    frontend's actual load pattern: one /predict call per fixture shown,
+    fired in parallel via Promise.all."""
+    fixtures = client.get("/matches").json()
+    fixture_ids = [f["fixture_id"] for f in fixtures]
+
+    start = time.time()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(fixture_ids)) as pool:
+        responses = list(
+            pool.map(lambda fid: client.get("/predict", params={"fixture_id": fid}), fixture_ids)
+        )
+    elapsed = time.time() - start
+
+    try:
+        assert all(r.status_code == 200 for r in responses)
+        # Generous bound for a hosted free-tier DB — the original bug meant
+        # some of these requests timed out entirely (>15s) rather than just
+        # being slow.
+        assert elapsed < 15, f"{len(fixture_ids)} concurrent /predict calls took {elapsed:.1f}s"
+    finally:
+        with db_conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM predictions WHERE fixture_id = ANY(%s);", (fixture_ids,)
+            )
         db_conn.commit()
