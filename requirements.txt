@@ -1,0 +1,6 @@
+# Grows one section at a time as each phase needs new libraries —
+# a dependency shouldn't appear here before the code that uses it exists.
+
+# Phase 1: DB migrations
+psycopg2-binary==2.9.9
+python-dotenv==1.0.1
