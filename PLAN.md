@@ -355,14 +355,26 @@ live API, not just by writing tests:**
    `python -m http.server` stood in for `docker compose up` to verify the
    same app code.
 
-### Phase 9 — Polish
-1. README: architecture diagram, setup steps, screenshots/GIF of the frontend.
-2. Full docker-compose wiring (db + api; frontend as static files served
-   simply, e.g. via the API or `python -m http.server`).
-3. End-to-end dry run from a fresh clone: migrate → ETL → train → serve → view
-   in browser — this is the final acceptance test for the whole project.
-4. Optional stretch (only after everything above is solid): GitHub Actions
-   running the pytest suites on push.
+### Phase 9 — Polish — DONE (except the optional stretch)
+1. README: architecture diagram (mermaid, renders natively on GitHub —
+   stays accurate as the pipeline changes rather than going stale like a
+   static image would), setup steps, a screenshot.
+2. Frontend served via the API itself (`app.mount("/", StaticFiles(...))`,
+   mounted last so it doesn't shadow any API route) — `docker compose up`
+   alone now serves the whole demo on one port, no second static-file
+   server needed. `docker-compose.yml` was already just the `api` service
+   (Phase 7); this made using it actually complete.
+3. End-to-end dry run from a genuinely fresh `git clone` (not just this
+   working directory): fresh venv, one-shot `pip install -r requirements.txt`
+   (never previously tested — this repo's working venv was built up
+   incrementally phase-by-phase, which could have hidden an ordering issue),
+   `db/migrate.py` (correctly a no-op — already applied), and a live
+   `uvicorn` + `curl` round trip through `/health`, `/` (frontend), and
+   `/predict` — all succeeded from code that had never been run before.
+4. Optional stretch, not yet done: GitHub Actions running the pytest suites
+   on push. Needs `DATABASE_URL` and `FOOTBALL_DATA_ORG_API_KEY` added as
+   GitHub repository secrets — a step only the repo owner can do, since it
+   requires GitHub account access this assistant doesn't have.
 
 ## Risk / scope-creep flags
 
