@@ -1,5 +1,5 @@
 """
-FastAPI app: GET /health, GET /matches, GET /predict.
+FastAPI app: GET /health, GET /matches, GET /predict, GET /calibration.
 
 Run locally:
     uvicorn api.main:app --reload
@@ -8,15 +8,19 @@ Run in Docker:
     docker compose up api
 """
 
+import json
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from api.db import close_pool, get_connection, get_db, init_pool
 from api.routers import matches, predict
+
+REPORTS_DIR = Path(__file__).parent.parent / "reports"
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "ml"))
 from model_registry import load_model
@@ -49,6 +53,14 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="SoccerIQ", lifespan=lifespan)
+
+# Wide open — fine for a local-only portfolio demo with no auth or sensitive
+# data; the frontend is plain static files served from whatever port/origin
+# is convenient, not worth pinning down for this scope.
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_methods=["GET"], allow_headers=["*"],
+)
+
 app.include_router(matches.router)
 app.include_router(predict.router)
 
@@ -60,3 +72,14 @@ def health(conn=Depends(get_db)):
     with conn.cursor() as cur:
         cur.execute("SELECT 1;")
     return {"status": "ok"}
+
+
+@app.get("/calibration")
+def calibration():
+    """Serves reports/calibration_data.json (Phase 5's evaluation output) for
+    the frontend's calibration chart — no DB query, just the file Phase 5
+    already generated, so training and serving never show different numbers."""
+    path = REPORTS_DIR / "calibration_data.json"
+    if not path.exists():
+        raise HTTPException(status_code=503, detail="No calibration data yet — run ml/evaluate.py.")
+    return json.loads(path.read_text())

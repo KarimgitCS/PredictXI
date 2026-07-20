@@ -15,10 +15,11 @@ RUN apt-get update \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Only what the API actually imports at runtime — not db/, etl/, frontend/,
-# reports/, data/.
+# Only what the API actually reads at runtime — not db/, etl/, frontend/,
+# data/. reports/ is included: GET /calibration serves reports/calibration_data.json.
 COPY ml/ ml/
 COPY api/ api/
+COPY reports/ reports/
 
 ENV PYTHONPATH=/app
 
