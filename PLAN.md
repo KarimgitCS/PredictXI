@@ -355,7 +355,7 @@ live API, not just by writing tests:**
    `python -m http.server` stood in for `docker compose up` to verify the
    same app code.
 
-### Phase 9 — Polish — DONE (except the optional stretch)
+### Phase 9 — Polish — DONE
 1. README: architecture diagram (mermaid, renders natively on GitHub —
    stays accurate as the pipeline changes rather than going stale like a
    static image would), setup steps, a screenshot.
@@ -371,10 +371,16 @@ live API, not just by writing tests:**
    `db/migrate.py` (correctly a no-op — already applied), and a live
    `uvicorn` + `curl` round trip through `/health`, `/` (frontend), and
    `/predict` — all succeeded from code that had never been run before.
-4. Optional stretch, not yet done: GitHub Actions running the pytest suites
-   on push. Needs `DATABASE_URL` and `FOOTBALL_DATA_ORG_API_KEY` added as
-   GitHub repository secrets — a step only the repo owner can do, since it
-   requires GitHub account access this assistant doesn't have.
+4. Optional stretch, done: `.github/workflows/tests.yml` runs `ml/tests/`,
+   `db/tests/`, `api/tests/`, and `etl/tests/test_fetch_live_data.py` on every
+   push. Deliberately excludes `etl/tests/test_load_historical_csv.py` — its
+   idempotency check re-runs the full ~10-minute historical loader and needs
+   the season CSVs downloaded first, too slow and too much repeated third-
+   party/DB load for every push; run it manually after touching that ETL
+   code instead. Only needs `DATABASE_URL` as a repo secret (not
+   `FOOTBALL_DATA_ORG_API_KEY` — no CI-run test calls the live API directly),
+   added by the repo owner in GitHub Settings, since that requires GitHub
+   account access this assistant doesn't have.
 
 ## Risk / scope-creep flags
 

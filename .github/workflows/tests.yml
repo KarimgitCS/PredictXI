@@ -1,0 +1,41 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # libgomp1: the Linux equivalent of the local libomp fix — xgboost's
+      # compiled library needs an OpenMP runtime present.
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libgomp1
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      # Runs against the same hosted database as local development (see
+      # PLAN.md's Phase 7 note — no isolated test schema was built for this
+      # project). Deliberately excludes etl/tests/test_load_historical_csv.py:
+      # its idempotency check re-runs the full ~3,800-row historical loader
+      # (~9-10 minutes, network-bound) and needs the season CSVs downloaded
+      # first — too slow and too much repeated third-party/DB load for every
+      # push. Run that suite manually (etl/download_historical_csv.py, then
+      # pytest etl/tests/test_load_historical_csv.py) after changing the
+      # historical ETL code, not on every push.
+      - name: Run tests
+        run: |
+          pytest ml/tests/ db/tests/ api/tests/ etl/tests/test_fetch_live_data.py -v

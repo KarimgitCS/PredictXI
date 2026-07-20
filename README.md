@@ -1,5 +1,7 @@
 # SoccerIQ
 
+[![Tests](https://github.com/KarimgitCS/SoccerIQ/actions/workflows/tests.yml/badge.svg)](https://github.com/KarimgitCS/SoccerIQ/actions/workflows/tests.yml)
+
 Premier League match outcome predictor (Home / Draw / Away) with calibrated
 probabilities, comparing logistic regression against XGBoost. Feature
 engineering happens entirely in Postgres via leakage-safe SQL views; the API
@@ -123,6 +125,16 @@ pytest etl/tests/ ml/tests/ db/tests/ api/tests/
 Runs against the same hosted database as everything else in this
 project (see PLAN.md's Phase 7 note on why — no isolated test schema was
 built). Test-inserted rows clean up after themselves.
+
+**CI** ([.github/workflows/tests.yml](.github/workflows/tests.yml)) runs
+`ml/tests/`, `db/tests/`, `api/tests/`, and `etl/tests/test_fetch_live_data.py`
+on every push — deliberately excluding
+`etl/tests/test_load_historical_csv.py`, whose idempotency check re-runs the
+full ~10-minute historical loader; run that one manually after touching the
+historical ETL code. To make CI pass, add `DATABASE_URL` as a repository
+secret: **Settings → Secrets and variables → Actions → New repository
+secret**, name `DATABASE_URL`, value your hosted Postgres connection string
+(same one in your local `.env`).
 
 ## Known limitations
 
