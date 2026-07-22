@@ -27,6 +27,39 @@ def _to_float_or_nan(value):
     return float(value) if value is not None else float("nan")
 
 
+def _to_float_or_none(value):
+    """Same Decimal-to-float conversion, but None stays None — for values
+    going straight into the JSON response rather than into the model."""
+    return float(value) if value is not None else None
+
+
+# Roughly the league-average goals scored by one team in one Premier League
+# match — the fallback when a team has no rolling goals data yet (new to the
+# tracked window, or the free-tier API hasn't backfilled this season yet).
+LEAGUE_AVERAGE_GOALS = 1.35
+
+
+def _estimate_score(feature_row: dict) -> tuple[int, int]:
+    """A lightweight scoreline estimate, not a second model: blends each
+    team's own scoring rate with their opponent's conceding rate from the
+    existing rolling-5 features, then rounds to the nearest goal. This is
+    a heuristic on top of the classifier's H/D/A prediction, not a
+    separately trained regression."""
+    def blend(scoring, conceding):
+        values = [v for v in (scoring, conceding) if v is not None]
+        return sum(values) / len(values) if values else LEAGUE_AVERAGE_GOALS
+
+    home_goals = blend(
+        _to_float_or_none(feature_row["home_rolling_goals_for_5"]),
+        _to_float_or_none(feature_row["away_rolling_goals_against_5"]),
+    )
+    away_goals = blend(
+        _to_float_or_none(feature_row["away_rolling_goals_for_5"]),
+        _to_float_or_none(feature_row["home_rolling_goals_against_5"]),
+    )
+    return round(home_goals), round(away_goals)
+
+
 @router.get("/predict", response_model=PredictionOut)
 def predict(fixture_id: int, request: Request, conn=Depends(get_db)):
     model = request.app.state.active_model
@@ -52,6 +85,7 @@ def predict(fixture_id: int, request: Request, conn=Depends(get_db)):
     X = pd.DataFrame([{col: _to_float_or_nan(feature_row[col]) for col in FEATURE_COLUMNS}])
     probs = model.predict_proba(X)[0]
     predicted_outcome = RESULT_CLASSES[probs.argmax()]
+    predicted_home_goals, predicted_away_goals = _estimate_score(feature_row)
 
     with conn.cursor() as cur:
         cur.execute(
@@ -72,5 +106,11 @@ def predict(fixture_id: int, request: Request, conn=Depends(get_db)):
         prob_draw=round(float(probs[1]), 4),
         prob_away=round(float(probs[2]), 4),
         predicted_outcome=predicted_outcome,
+        predicted_home_goals=predicted_home_goals,
+        predicted_away_goals=predicted_away_goals,
+        home_position=feature_row["home_position"],
+        away_position=feature_row["away_position"],
+        home_form_ppg=_to_float_or_none(feature_row["home_rolling_points_5"]),
+        away_form_ppg=_to_float_or_none(feature_row["away_rolling_points_5"]),
         model_name=model_info["name"],
     )

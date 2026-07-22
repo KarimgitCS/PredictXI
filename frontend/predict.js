@@ -19,45 +19,24 @@ function teamCrest(url) {
     : `<span class="team-crest team-crest-placeholder"></span>`;
 }
 
-// Purely client-side — nothing here is sent anywhere or saved. The one
-// network call this makes (/predict) is the same endpoint the fixture list
-// already uses to show the model's own prediction for comparison; it isn't
-// storing the user's personal pick.
-function selectChoice(fixture, card, btn) {
+// Purely visual — just marks which button you clicked. Nothing is sent
+// anywhere or saved; there's no message, popup, or network call on click.
+function selectChoice(card, btn) {
   card.querySelectorAll(".predict-choice-btn").forEach((b) => b.classList.remove("selected"));
   btn.classList.add("selected");
-  const choice = btn.dataset.choice;
-
-  const label = { H: fixture.home_team, D: "a draw", A: fixture.away_team }[choice];
-  const suffix = choice === "D" ? "" : " to win";
-  const resultEl = card.querySelector(".predict-result");
-  resultEl.hidden = false;
-  resultEl.innerHTML =
-    `<strong>Your prediction:</strong> ${label}${suffix}. Not saved anywhere — just for fun. ` +
-    `<span class="model-compare">Checking what the model thinks…</span>`;
-
-  fetch(`${API_BASE}/predict?fixture_id=${fixture.fixture_id}`)
-    .then((r) => (r.ok ? r.json() : null))
-    .then((prediction) => {
-      const compareEl = resultEl.querySelector(".model-compare");
-      if (!compareEl || !prediction) return;
-      const modelPct = {
-        H: prediction.prob_home, D: prediction.prob_draw, A: prediction.prob_away,
-      }[choice];
-      compareEl.textContent = `The model gives that outcome a ${Math.round(modelPct * 100)}% chance.`;
-    })
-    .catch(() => {
-      const compareEl = resultEl.querySelector(".model-compare");
-      if (compareEl) compareEl.textContent = "";
-    });
 }
 
-function predictFixtureCard(fixture) {
+function predictFixtureCard(fixture, prediction) {
   const colors = resolveMatchColors(fixture.home_team, fixture.away_team);
   const drawColor = getComputedStyle(document.documentElement).getPropertyValue("--baseline").trim();
 
   const card = document.createElement("li");
   card.className = "fixture-card predict-fixture-card";
+
+  const scoreLine = prediction
+    ? `<p class="likely-score">Most likely score: <strong>${fixture.home_team} ${prediction.predicted_home_goals}–${prediction.predicted_away_goals} ${fixture.away_team}</strong></p>`
+    : "";
+
   card.innerHTML = `
     <div class="fixture-matchup">
       <div class="team-row">
@@ -73,6 +52,7 @@ function predictFixtureCard(fixture) {
       </div>
     </div>
     <p class="fixture-kickoff">${formatKickoff(fixture.kickoff_at)}</p>
+    ${scoreLine}
     <div class="predict-choice-row">
       <button class="predict-choice-btn" data-choice="H" style="--chosen-color:${colors.home.hex}">
         ${crestOrPlaceholder(fixture.home_crest_url)}
@@ -86,11 +66,10 @@ function predictFixtureCard(fixture) {
         ${crestOrPlaceholder(fixture.away_crest_url)}
         <span>${fixture.away_team}</span>
       </button>
-    </div>
-    <div class="predict-result" hidden></div>`;
+    </div>`;
 
   card.querySelectorAll(".predict-choice-btn").forEach((btn) => {
-    btn.addEventListener("click", () => selectChoice(fixture, card, btn));
+    btn.addEventListener("click", () => selectChoice(card, btn));
   });
 
   return card;
@@ -107,9 +86,19 @@ async function init() {
       return;
     }
 
+    // Fetched once up front (not on click) so the most-likely-score line is
+    // visible immediately for every match, same as the fixtures page.
+    const predictions = await Promise.all(
+      fixtures.map((f) =>
+        fetch(`${API_BASE}/predict?fixture_id=${f.fixture_id}`)
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null)
+      )
+    );
+
     const ul = document.createElement("ul");
     ul.className = "fixtures-list";
-    fixtures.forEach((fixture) => ul.appendChild(predictFixtureCard(fixture)));
+    fixtures.forEach((fixture, i) => ul.appendChild(predictFixtureCard(fixture, predictions[i])));
     listEl.appendChild(ul);
 
     statusEl.hidden = true;

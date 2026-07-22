@@ -267,6 +267,22 @@ main {
   margin: 0.35rem 0 0.6rem;
 }
 
+.likely-score {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0 0 0.5rem;
+}
+.likely-score strong { color: var(--text-primary); }
+
+.match-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 0.6rem;
+}
+
 .prob-values {
   display: flex;
   justify-content: space-between;
@@ -358,17 +374,6 @@ main {
   font-size: 0.6rem;
   color: var(--text-muted);
 }
-
-.predict-result {
-  margin-top: 0.5rem;
-  padding: 0.75rem 0.9rem;
-  border-radius: 8px;
-  background: var(--page-plane);
-  border: 1px solid var(--border);
-  font-size: 0.88rem;
-}
-.predict-result[hidden] { display: none; }
-.predict-result strong { font-family: "Fredoka", system-ui, sans-serif; }
 
 .page-footer {
   max-width: 900px;

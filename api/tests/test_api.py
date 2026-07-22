@@ -82,6 +82,10 @@ def test_predict_returns_calibrated_probabilities_and_logs_prediction(client, db
     assert body["predicted_outcome"] in ("H", "D", "A")
     total = body["prob_home"] + body["prob_draw"] + body["prob_away"]
     assert total == pytest.approx(1.0, abs=0.01)
+    assert isinstance(body["predicted_home_goals"], int)
+    assert isinstance(body["predicted_away_goals"], int)
+    assert body["predicted_home_goals"] >= 0
+    assert body["predicted_away_goals"] >= 0
 
     try:
         with db_conn.cursor() as cur:

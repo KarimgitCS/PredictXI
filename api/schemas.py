@@ -25,4 +25,10 @@ class PredictionOut(BaseModel):
     prob_draw: float
     prob_away: float
     predicted_outcome: str
+    predicted_home_goals: int
+    predicted_away_goals: int
+    home_position: int | None
+    away_position: int | None
+    home_form_ppg: float | None
+    away_form_ppg: float | None
     model_name: str

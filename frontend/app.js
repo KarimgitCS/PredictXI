@@ -26,6 +26,12 @@ function teamRow(name, crestUrl, colorHex) {
     </div>`;
 }
 
+function ordinal(n) {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
 function fixtureCard(fixture, prediction) {
   const li = document.createElement("li");
   li.className = "fixture-card";
@@ -45,8 +51,20 @@ function fixtureCard(fixture, prediction) {
   }
 
   const pct = (p) => Math.round(p * 100);
+
+  const hasStats = prediction.home_position != null && prediction.away_position != null;
+  const hasForm = prediction.home_form_ppg != null && prediction.away_form_ppg != null;
+  const statsLine = (hasStats || hasForm)
+    ? `<div class="match-stats">
+        ${hasStats ? `<span>League position: ${ordinal(prediction.home_position)} vs ${ordinal(prediction.away_position)}</span>` : ""}
+        ${hasForm ? `<span>Form (last 5): ${prediction.home_form_ppg.toFixed(1)} vs ${prediction.away_form_ppg.toFixed(1)} pts/game</span>` : ""}
+      </div>`
+    : "";
+
   li.innerHTML = `
     ${matchup}
+    <p class="likely-score">Most likely score: <strong>${fixture.home_team} ${prediction.predicted_home_goals}–${prediction.predicted_away_goals} ${fixture.away_team}</strong></p>
+    ${statsLine}
     <div class="prob-values">
       <span>${pct(prediction.prob_home)}%</span>
       <span>Draw ${pct(prediction.prob_draw)}%</span>
