@@ -4,48 +4,120 @@ const API_BASE = "http://localhost:8000";
 const styles = getComputedStyle(document.documentElement);
 const color = (name) => styles.getPropertyValue(name).trim();
 
-function formatKickoff(isoString) {
-  return new Date(isoString).toLocaleString(undefined, {
-    weekday: "short", month: "short", day: "numeric",
-    hour: "numeric", minute: "2-digit",
+function formatKickoffTime(isoString) {
+  return new Date(isoString).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+function formatMatchDate(isoString) {
+  return new Date(isoString).toLocaleDateString(undefined, {
+    weekday: "long", month: "long", day: "numeric",
   });
+}
+
+function teamRow(name, crestUrl, colorHex) {
+  const crest = crestUrl
+    ? `<img class="team-crest" src="${crestUrl}" alt="" onerror="this.style.visibility='hidden'" />`
+    : `<span class="team-crest team-crest-placeholder"></span>`;
+  return `
+    <div class="team-row">
+      ${crest}
+      <span class="team-color-dot" style="background:${colorHex}"></span>
+      <span class="team-name">${name}</span>
+    </div>`;
 }
 
 function fixtureCard(fixture, prediction) {
   const li = document.createElement("li");
   li.className = "fixture-card";
+  const colors = resolveMatchColors(fixture.home_team, fixture.away_team);
+
+  const matchup = `
+    <div class="fixture-matchup">
+      ${teamRow(fixture.home_team, fixture.home_crest_url, colors.home.hex)}
+      <span class="vs">vs</span>
+      ${teamRow(fixture.away_team, fixture.away_crest_url, colors.away.hex)}
+    </div>
+    <p class="fixture-kickoff">${formatKickoffTime(fixture.kickoff_at)}</p>`;
 
   if (!prediction) {
-    li.innerHTML = `
-      <div class="fixture-teams"><span>${fixture.home_team} vs ${fixture.away_team}</span></div>
-      <p class="fixture-kickoff">${formatKickoff(fixture.kickoff_at)}</p>
-      <p class="status-text">Prediction unavailable.</p>`;
+    li.innerHTML = `${matchup}<p class="status-text">Prediction unavailable.</p>`;
     return li;
   }
 
   const pct = (p) => Math.round(p * 100);
   li.innerHTML = `
-    <div class="fixture-teams">
-      <span>${fixture.home_team} vs ${fixture.away_team}</span>
-    </div>
-    <p class="fixture-kickoff">${formatKickoff(fixture.kickoff_at)}</p>
+    ${matchup}
     <div class="prob-values">
-      <span>H ${pct(prediction.prob_home)}%</span>
-      <span>D ${pct(prediction.prob_draw)}%</span>
-      <span>A ${pct(prediction.prob_away)}%</span>
+      <span>${pct(prediction.prob_home)}%</span>
+      <span>Draw ${pct(prediction.prob_draw)}%</span>
+      <span>${pct(prediction.prob_away)}%</span>
     </div>
     <div class="prob-bar" role="img"
-         aria-label="Predicted: ${pct(prediction.prob_home)}% home win, ${pct(prediction.prob_draw)}% draw, ${pct(prediction.prob_away)}% away win">
-      <span class="home" style="width:${prediction.prob_home * 100}%"></span>
+         aria-label="Predicted: ${pct(prediction.prob_home)}% ${fixture.home_team} win, ${pct(prediction.prob_draw)}% draw, ${pct(prediction.prob_away)}% ${fixture.away_team} win">
+      <span style="width:${prediction.prob_home * 100}%; background:${colors.home.hex}"></span>
       <span class="draw" style="width:${prediction.prob_draw * 100}%"></span>
-      <span class="away" style="width:${prediction.prob_away * 100}%"></span>
+      <span style="width:${prediction.prob_away * 100}%; background:${colors.away.hex}"></span>
     </div>`;
   return li;
 }
 
+// Two-level grouping: matchweek (matchday), then calendar date within it —
+// a Premier League "matchweek" typically spans several days (Fri-Mon), so
+// both groupings are meaningful at once, not redundant.
+function groupFixtures(fixtures) {
+  const byMatchday = new Map();
+  for (const fixture of fixtures) {
+    const matchday = fixture.matchday ?? 0;
+    if (!byMatchday.has(matchday)) byMatchday.set(matchday, new Map());
+    const byDate = byMatchday.get(matchday);
+    const dateKey = new Date(fixture.kickoff_at).toDateString();
+    if (!byDate.has(dateKey)) byDate.set(dateKey, []);
+    byDate.get(dateKey).push(fixture);
+  }
+  return byMatchday;
+}
+
+function renderFixtureGroups(fixtures, predictionsById) {
+  const container = document.getElementById("fixtures-groups");
+  container.innerHTML = "";
+
+  const grouped = groupFixtures(fixtures);
+  const matchdays = [...grouped.keys()].sort((a, b) => a - b);
+
+  for (const matchday of matchdays) {
+    const section = document.createElement("div");
+    section.className = "matchweek-group";
+
+    const heading = document.createElement("h3");
+    heading.className = "matchweek-heading";
+    heading.textContent = matchday ? `Matchweek ${matchday}` : "Matchweek";
+    section.appendChild(heading);
+
+    const byDate = grouped.get(matchday);
+    const dateKeys = [...byDate.keys()].sort((a, b) => new Date(a) - new Date(b));
+
+    for (const dateKey of dateKeys) {
+      const dayFixtures = byDate.get(dateKey);
+
+      const dateHeading = document.createElement("h4");
+      dateHeading.className = "date-heading";
+      dateHeading.textContent = formatMatchDate(dayFixtures[0].kickoff_at);
+      section.appendChild(dateHeading);
+
+      const ul = document.createElement("ul");
+      ul.className = "fixtures-list";
+      for (const fixture of dayFixtures) {
+        ul.appendChild(fixtureCard(fixture, predictionsById.get(fixture.fixture_id)));
+      }
+      section.appendChild(ul);
+    }
+
+    container.appendChild(section);
+  }
+}
+
 async function loadFixtures() {
   const statusEl = document.getElementById("fixtures-status");
-  const listEl = document.getElementById("fixtures-list");
 
   try {
     const fixtures = await fetch(`${API_BASE}/matches`).then((r) => r.json());
@@ -60,9 +132,9 @@ async function loadFixtures() {
           .catch(() => null)
       )
     );
+    const predictionsById = new Map(fixtures.map((f, i) => [f.fixture_id, predictions[i]]));
 
-    listEl.innerHTML = "";
-    fixtures.forEach((f, i) => listEl.appendChild(fixtureCard(f, predictions[i])));
+    renderFixtureGroups(fixtures, predictionsById);
     statusEl.hidden = true;
   } catch (err) {
     statusEl.textContent = "Couldn't reach the API — is it running at " + API_BASE + "?";

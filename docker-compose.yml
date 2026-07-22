@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: api/Dockerfile
-    container_name: soccer_iq_api
+    container_name: predictxi_api
     env_file: .env
     environment:
       DATABASE_URL: ${DATABASE_URL}

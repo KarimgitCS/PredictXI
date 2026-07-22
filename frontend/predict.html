@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PredictXI — Premier League match predictions</title>
+  <title>PredictXI — Make your prediction</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet" />
@@ -30,42 +30,29 @@
     </div>
     <p class="subtitle">Match outcome predictions, with calibrated probabilities.</p>
     <nav class="page-nav">
-      <a href="index.html" class="active">Fixtures</a>
-      <a href="predict.html">Predict</a>
+      <a href="index.html">Fixtures</a>
+      <a href="predict.html" class="active">Predict</a>
     </nav>
   </header>
 
   <main>
-    <section class="panel" aria-labelledby="fixtures-heading">
+    <section class="panel" aria-labelledby="predict-heading">
       <div class="panel-head">
-        <h2 id="fixtures-heading">Upcoming fixtures</h2>
+        <h2 id="predict-heading">Make your prediction</h2>
       </div>
       <p class="panel-description">
-        Each team's win segment is colored to that team — the legend under each
-        match shows exactly which color is which side.
+        Pick an upcoming match and call the outcome yourself — just for fun,
+        nothing here is saved anywhere.
       </p>
-      <p id="fixtures-status" class="status-text">Loading fixtures…</p>
-      <div id="fixtures-groups"></div>
-    </section>
+      <p id="predict-status" class="status-text">Loading fixtures…</p>
 
-    <section class="panel" aria-labelledby="calibration-heading">
-      <div class="panel-head">
-        <h2 id="calibration-heading">Model calibration</h2>
-      </div>
-      <p class="panel-description">
-        For matches predicted at, say, 40% confidence, did that outcome actually happen
-        about 40% of the time? A perfectly calibrated model's points sit on the dashed
-        diagonal. Measured on the held-out 2019-2020 test season.
-      </p>
-      <p id="calibration-status" class="status-text">Loading calibration data…</p>
-      <div class="chart-wrap">
-        <canvas id="calibration-chart" role="img" aria-label="Calibration chart: predicted probability vs. actual outcome frequency, for logistic regression and XGBoost"></canvas>
+      <div class="predict-picker" id="predict-picker" hidden>
+        <label for="fixture-select">Match</label>
+        <select id="fixture-select"></select>
       </div>
 
-      <details class="table-view">
-        <summary>View as table</summary>
-        <div id="calibration-table-wrap"></div>
-      </details>
+      <div id="predict-choices"></div>
+      <div id="predict-result" class="predict-result" hidden></div>
     </section>
   </main>
 
@@ -73,8 +60,7 @@
     <p>Portfolio project. Predictions are a rolling-form statistical estimate, not betting advice.</p>
   </footer>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="team-colors.js"></script>
-  <script src="app.js"></script>
+  <script src="predict.js"></script>
 </body>
 </html>

@@ -56,7 +56,7 @@ async def lifespan(app: FastAPI):
     close_pool()
 
 
-app = FastAPI(title="SoccerIQ", lifespan=lifespan)
+app = FastAPI(title="PredictXI", lifespan=lifespan)
 
 # Wide open — fine for a local-only portfolio demo with no auth or sensitive
 # data; the frontend is plain static files served from whatever port/origin
@@ -80,9 +80,10 @@ def health(conn=Depends(get_db)):
 
 @app.get("/calibration")
 def calibration():
-    """Serves reports/calibration_data.json (Phase 5's evaluation output) for
-    the frontend's calibration chart — no DB query, just the file Phase 5
-    already generated, so training and serving never show different numbers."""
+    """Serves reports/calibration_data.json (the model-training step's
+    evaluation output) for the frontend's calibration chart — no DB query,
+    just the file already generated, so training and serving never show
+    different numbers."""
     path = REPORTS_DIR / "calibration_data.json"
     if not path.exists():
         raise HTTPException(status_code=503, detail="No calibration data yet — run ml/evaluate.py.")
