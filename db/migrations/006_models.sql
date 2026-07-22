@@ -1,7 +1,7 @@
--- Registry of trained model artifacts (Phase 6). The partial unique index
--- makes it structurally impossible for more than one model to be active at
--- once, so api/routers/predict.py (Phase 7) never has to decide *which*
--- active model to use — there can only ever be exactly one or zero.
+-- Registry of trained model artifacts. The partial unique index makes it
+-- structurally impossible for more than one model to be active at once, so
+-- api/routers/predict.py never has to decide *which* active model to use —
+-- there can only ever be exactly one or zero.
 
 CREATE TABLE models (
     model_id SERIAL PRIMARY KEY,

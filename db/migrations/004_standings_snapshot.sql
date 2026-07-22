@@ -1,8 +1,8 @@
 -- Periodic snapshots of the current-season league table, pulled from
--- football-data.org's standings endpoint (Phase 3). Used for display
--- (a "league table" view in the frontend) — match_features (Phase 4) derives
--- its own position/PPG differential straight from matches, so that feature
--- is never dependent on this table being freshly fetched.
+-- football-data.org's standings endpoint. Used for display (a "league
+-- table" view in the frontend) — match_features derives its own
+-- position/PPG differential straight from matches, so that feature is
+-- never dependent on this table being freshly fetched.
 
 CREATE TABLE standings_snapshot (
     snapshot_id SERIAL PRIMARY KEY,

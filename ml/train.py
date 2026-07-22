@@ -38,8 +38,8 @@ VALIDATION_SEASON = "2018-2019"
 TEST_SEASON = "2019-2020"
 
 # Fixed class order used everywhere a model outputs a probability triple —
-# the API (Phase 7) and evaluation report (Phase 5) both rely on this exact
-# order, so it lives here once rather than being re-derived anywhere else.
+# the API and the evaluation report both rely on this exact order, so it
+# lives here once rather than being re-derived anywhere else.
 RESULT_CLASSES = ["H", "D", "A"]
 
 FEATURE_COLUMNS = [

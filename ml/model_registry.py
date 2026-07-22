@@ -3,7 +3,7 @@ Persists trained models: saves the artifact to ml/artifacts/, inserts a row
 into `models` (algorithm, metrics, feature set version, artifact path), and
 flips `is_active` on whichever model wins by log loss — the standard proper
 scoring rule for calibrated probabilities, and what api/routers/predict.py
-(Phase 7) will load to serve predictions.
+will load to serve predictions.
 
 Usage:
     python ml/model_registry.py

@@ -5,7 +5,7 @@
 --
 -- Once a fixture is actually played, etl/fetch_live_data.py inserts the
 -- result into `matches` (source='api') — rows here stay purely "not played
--- yet" so match_features (Phase 4) can tell at a glance which side of the
+-- yet" so match_features can tell at a glance which side of the
 -- training/serving split a given match belongs to.
 
 CREATE TABLE fixtures (

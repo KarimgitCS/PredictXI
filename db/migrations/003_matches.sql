@@ -1,6 +1,6 @@
 -- Unified table for both historical (football-data.co.uk, 2010-2020) and
 -- current-season completed matches (football-data.org, backfilled by
--- etl/fetch_live_data.py in Phase 3). One row per finished match.
+-- etl/fetch_live_data.py). One row per finished match.
 --
 -- `source` distinguishes provenance. Stat columns (shots/corners/fouls/cards)
 -- are nullable because football-data.org's free tier does not provide them —
@@ -46,8 +46,8 @@ CREATE TABLE matches (
     UNIQUE (season, match_date, home_team_id, away_team_id)
 );
 
--- Every rolling-window feature query in Phase 4 filters by team_id and orders
--- by match_date, from both the home and away side — these indexes are what
+-- Every rolling-window feature query filters by team_id and orders by
+-- match_date, from both the home and away side — these indexes are what
 -- keep those window functions fast as the table grows.
 CREATE INDEX idx_matches_home_team_date ON matches (home_team_id, match_date);
 CREATE INDEX idx_matches_away_team_date ON matches (away_team_id, match_date);

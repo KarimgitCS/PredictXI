@@ -1,7 +1,7 @@
 """
 FastAPI TestClient suite. Runs against the real hosted database (not a
 disposable test schema — this project uses a single hosted free-tier
-instance for everything, dev included, matching every other phase's test
+instance for everything, dev included, matching every other test suite's
 approach in this repo; see PLAN.md). Any prediction row this suite inserts
 is deleted afterward so repeated test runs don't clutter real data.
 """

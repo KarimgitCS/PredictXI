@@ -28,8 +28,8 @@ jobs:
         run: pip install -r requirements.txt
 
       # Runs against the same hosted database as local development (see
-      # PLAN.md's Phase 7 note — no isolated test schema was built for this
-      # project). Deliberately excludes etl/tests/test_load_historical_csv.py:
+      # PLAN.md's API-backend note — no isolated test schema was built for
+      # this project). Deliberately excludes etl/tests/test_load_historical_csv.py:
       # its idempotency check re-runs the full ~3,800-row historical loader
       # (~9-10 minutes, network-bound) and needs the season CSVs downloaded
       # first — too slow and too much repeated third-party/DB load for every

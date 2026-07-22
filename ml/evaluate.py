@@ -2,7 +2,7 @@
 Evaluates the logreg and xgboost models trained by ml/train.py on the held-out
 test season (2019-2020, never touched during training or calibration),
 writing a comparison report and the underlying calibration-curve data for
-the frontend's calibration chart (Phase 8).
+the frontend's calibration chart.
 
 Usage:
     python ml/evaluate.py
@@ -96,7 +96,7 @@ def render_report(results: dict, result_classes: list[str]) -> str:
         "Lower is better for log loss and Brier score. Full calibration-curve "
         "data (predicted probability vs. actual outcome frequency, per class, "
         "per model) is in `calibration_data.json` in this directory — that's "
-        "what the frontend's calibration chart (Phase 8) plots.",
+        "what the frontend's calibration chart plots.",
     ]
     return "\n".join(lines) + "\n"
 

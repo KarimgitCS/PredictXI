@@ -33,7 +33,7 @@ def already_applied(cur) -> set[str]:
 
 def is_effectively_empty(sql: str) -> bool:
     """True if a file is only comments/whitespace (e.g. a reserved-number
-    placeholder, like 008_match_features_views.sql before Phase 4)."""
+    placeholder, like 008_match_features_views.sql before it was filled in)."""
     lines = (line.strip() for line in sql.splitlines())
     return not any(line and not line.startswith("--") for line in lines)
 

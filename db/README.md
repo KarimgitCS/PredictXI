@@ -30,9 +30,10 @@ DELETE FROM schema_migrations WHERE filename = '008_match_features_views.sql';
 ```
 
 then re-run `python db/migrate.py`. This is a deliberate exception, not a
-general pattern — it's what `008`'s placeholder (Phase 1) was reserved for,
-to be filled in with real `CREATE OR REPLACE VIEW` statements once Phase 4
-needed them, without renumbering every migration that already existed.
+general pattern — it's what `008`'s placeholder was reserved for early on,
+to be filled in with real `CREATE OR REPLACE VIEW` statements once the
+feature-views work needed them, without renumbering every migration that
+already existed.
 
 ## Current migrations
 
@@ -45,4 +46,5 @@ needed them, without renumbering every migration that already existed.
 | `005_fixtures.sql` | `fixtures` |
 | `006_models.sql` | `models` |
 | `007_predictions.sql` | `predictions` |
-| `008_match_features_views.sql` | `team_match_log`, `team_rolling_form`, `team_venue_win_rate`, `team_season_progress`, `prediction_targets`, `season_teams`, `team_standing_by_date`, `head_to_head`, `match_features` |
+| `008_match_features_views.sql` | `team_match_log`, `team_rolling_form`, `team_venue_win_rate`, `team_season_progress`, `prediction_targets`, `season_teams`, `head_to_head`, `match_features` |
+| `009_team_crest_url.sql` | `teams.crest_url` |

@@ -1,13 +1,13 @@
-# SoccerIQ
+# PredictXI
 
-[![Tests](https://github.com/KarimgitCS/SoccerIQ/actions/workflows/tests.yml/badge.svg)](https://github.com/KarimgitCS/SoccerIQ/actions/workflows/tests.yml)
+[![Tests](https://github.com/KarimgitCS/PredictXI/actions/workflows/tests.yml/badge.svg)](https://github.com/KarimgitCS/PredictXI/actions/workflows/tests.yml)
 
 Premier League match outcome predictor (Home / Draw / Away) with calibrated
 probabilities, comparing logistic regression against XGBoost. Feature
 engineering happens entirely in Postgres via leakage-safe SQL views; the API
 and frontend serve whatever the active model predicts.
 
-Portfolio project — see [PLAN.md](PLAN.md) for the full phase-by-phase build
+Portfolio project — see [PLAN.md](PLAN.md) for the full step-by-step build
 log, including two real performance/concurrency bugs found and fixed while
 actually running the app (not just from tests).
 
@@ -123,7 +123,7 @@ pytest etl/tests/ ml/tests/ db/tests/ api/tests/
 ```
 
 Runs against the same hosted database as everything else in this
-project (see PLAN.md's Phase 7 note on why — no isolated test schema was
+project (see PLAN.md's API-backend note on why — no isolated test schema was
 built). Test-inserted rows clean up after themselves.
 
 **CI** ([.github/workflows/tests.yml](.github/workflows/tests.yml)) runs
