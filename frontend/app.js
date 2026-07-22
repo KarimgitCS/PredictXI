@@ -14,22 +14,26 @@ function formatMatchDate(isoString) {
   });
 }
 
-function teamRow(name, crestUrl, colorHex) {
-  const crest = crestUrl
-    ? `<img class="team-crest" src="${crestUrl}" alt="" onerror="this.style.visibility='hidden'" />`
-    : `<span class="team-crest team-crest-placeholder"></span>`;
-  return `
-    <div class="team-row">
-      ${crest}
-      <span class="team-color-dot" style="background:${colorHex}"></span>
-      <span class="team-name">${name}</span>
-    </div>`;
-}
-
 function ordinal(n) {
   const s = ["th", "st", "nd", "rd"];
   const v = n % 100;
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+// Position is live, not a fixed label — it's computed from match_features
+// as of right now (each team's actual current standing), so it updates on
+// its own as results come in; no separate "refresh position" logic needed.
+function teamRow(name, crestUrl, colorHex, position) {
+  const crest = crestUrl
+    ? `<img class="team-crest" src="${crestUrl}" alt="" onerror="this.style.visibility='hidden'" />`
+    : `<span class="team-crest team-crest-placeholder"></span>`;
+  const positionLabel = position != null ? ` <span class="team-position">(${ordinal(position)})</span>` : "";
+  return `
+    <div class="team-row">
+      ${crest}
+      <span class="team-color-dot" style="background:${colorHex}"></span>
+      <span class="team-name">${name}${positionLabel}</span>
+    </div>`;
 }
 
 function fixtureCard(fixture, prediction) {
@@ -39,9 +43,9 @@ function fixtureCard(fixture, prediction) {
 
   const matchup = `
     <div class="fixture-matchup">
-      ${teamRow(fixture.home_team, fixture.home_crest_url, colors.home.hex)}
+      ${teamRow(fixture.home_team, fixture.home_crest_url, colors.home.hex, prediction?.home_position)}
       <span class="vs">vs</span>
-      ${teamRow(fixture.away_team, fixture.away_crest_url, colors.away.hex)}
+      ${teamRow(fixture.away_team, fixture.away_crest_url, colors.away.hex, prediction?.away_position)}
     </div>
     <p class="fixture-kickoff">${formatKickoffTime(fixture.kickoff_at)}</p>`;
 
@@ -52,12 +56,10 @@ function fixtureCard(fixture, prediction) {
 
   const pct = (p) => Math.round(p * 100);
 
-  const hasStats = prediction.home_position != null && prediction.away_position != null;
   const hasForm = prediction.home_form_ppg != null && prediction.away_form_ppg != null;
-  const statsLine = (hasStats || hasForm)
+  const statsLine = hasForm
     ? `<div class="match-stats">
-        ${hasStats ? `<span>League position: ${ordinal(prediction.home_position)} vs ${ordinal(prediction.away_position)}</span>` : ""}
-        ${hasForm ? `<span>Form (last 5): ${prediction.home_form_ppg.toFixed(1)} vs ${prediction.away_form_ppg.toFixed(1)} pts/game</span>` : ""}
+        <span>Form (last 5): ${prediction.home_form_ppg.toFixed(1)} vs ${prediction.away_form_ppg.toFixed(1)} pts/game</span>
       </div>`
     : "";
 

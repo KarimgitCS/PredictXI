@@ -255,6 +255,12 @@ main {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.team-position {
+  font-weight: 400;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
 .vs {
   color: var(--text-muted);
   font-size: 0.8rem;

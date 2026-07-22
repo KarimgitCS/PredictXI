@@ -19,6 +19,18 @@ function teamCrest(url) {
     : `<span class="team-crest team-crest-placeholder"></span>`;
 }
 
+function ordinal(n) {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+// Position is live, not a fixed label — computed from match_features as of
+// right now, so it updates on its own as results come in.
+function positionLabel(position) {
+  return position != null ? ` <span class="team-position">(${ordinal(position)})</span>` : "";
+}
+
 // Purely visual — just marks which button you clicked. Nothing is sent
 // anywhere or saved; there's no message, popup, or network call on click.
 function selectChoice(card, btn) {
@@ -42,13 +54,13 @@ function predictFixtureCard(fixture, prediction) {
       <div class="team-row">
         ${teamCrest(fixture.home_crest_url)}
         <span class="team-color-dot" style="background:${colors.home.hex}"></span>
-        <span class="team-name">${fixture.home_team}</span>
+        <span class="team-name">${fixture.home_team}${positionLabel(prediction?.home_position)}</span>
       </div>
       <span class="vs">vs</span>
       <div class="team-row">
         ${teamCrest(fixture.away_crest_url)}
         <span class="team-color-dot" style="background:${colors.away.hex}"></span>
-        <span class="team-name">${fixture.away_team}</span>
+        <span class="team-name">${fixture.away_team}${positionLabel(prediction?.away_position)}</span>
       </div>
     </div>
     <p class="fixture-kickoff">${formatKickoff(fixture.kickoff_at)}</p>
