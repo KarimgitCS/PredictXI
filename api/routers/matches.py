@@ -20,7 +20,9 @@ def list_matches(limit: int = Query(default=10, ge=1, le=100), conn=Depends(get_
         cur.execute(
             """
             SELECT f.fixture_id, f.season, f.matchday, f.kickoff_at,
-                   ht.name AS home_team, at.name AS away_team, f.status
+                   ht.name AS home_team, at.name AS away_team,
+                   ht.crest_url AS home_crest_url, at.crest_url AS away_crest_url,
+                   f.status
             FROM fixtures f
             JOIN teams ht ON ht.team_id = f.home_team_id
             JOIN teams at ON at.team_id = f.away_team_id

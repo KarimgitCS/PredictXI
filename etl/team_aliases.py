@@ -85,10 +85,14 @@ ALIAS_MAP: dict[str, dict[str, str]] = {
 }
 
 
-def resolve_team_id(cur, source: str, alias: str) -> int:
+def resolve_team_id(cur, source: str, alias: str, crest_url: str | None = None) -> int:
     """Return the team_id for a raw name from `source`, creating the team
     and/or alias row if this is the first time either has been seen.
     Idempotent — safe to call repeatedly with the same (source, alias).
+
+    crest_url is optional (only football-data.org responses include one) and
+    only ever fills in a currently-NULL value — never overwrites, so a team
+    already backfilled from a prior run is left alone.
     """
     cur.execute(
         "SELECT team_id FROM team_aliases WHERE source = %s AND alias = %s;",
@@ -96,7 +100,9 @@ def resolve_team_id(cur, source: str, alias: str) -> int:
     )
     row = cur.fetchone()
     if row is not None:
-        return row[0]
+        team_id = row[0]
+        _backfill_crest(cur, team_id, crest_url)
+        return team_id
 
     try:
         canonical_name = ALIAS_MAP[source][alias]
@@ -112,13 +118,24 @@ def resolve_team_id(cur, source: str, alias: str) -> int:
         team_id = row[0]
     else:
         cur.execute(
-            "INSERT INTO teams (name) VALUES (%s) RETURNING team_id;",
-            (canonical_name,),
+            "INSERT INTO teams (name, crest_url) VALUES (%s, %s) RETURNING team_id;",
+            (canonical_name, crest_url),
         )
         team_id = cur.fetchone()[0]
+
+    _backfill_crest(cur, team_id, crest_url)
 
     cur.execute(
         "INSERT INTO team_aliases (source, alias, team_id) VALUES (%s, %s, %s);",
         (source, alias, team_id),
     )
     return team_id
+
+
+def _backfill_crest(cur, team_id: int, crest_url: str | None) -> None:
+    if crest_url is None:
+        return
+    cur.execute(
+        "UPDATE teams SET crest_url = %s WHERE team_id = %s AND crest_url IS NULL;",
+        (crest_url, team_id),
+    )

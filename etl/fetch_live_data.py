@@ -63,7 +63,7 @@ def upsert_standings(cur, standings_payload: dict) -> int:
     table = standings_payload["standings"][0]["table"]  # "TOTAL" standings
 
     for row in table:
-        team_id = resolve_team_id(cur, ALIAS_SOURCE, row["team"]["name"])
+        team_id = resolve_team_id(cur, ALIAS_SOURCE, row["team"]["name"], row["team"].get("crest"))
         cur.execute(
             """
             INSERT INTO standings_snapshot
@@ -88,8 +88,10 @@ def upsert_standings(cur, standings_payload: dict) -> int:
 
 def upsert_fixtures(cur, matches: list[dict]) -> int:
     for match in matches:
-        home_team_id = resolve_team_id(cur, ALIAS_SOURCE, match["homeTeam"]["name"])
-        away_team_id = resolve_team_id(cur, ALIAS_SOURCE, match["awayTeam"]["name"])
+        home_team_id = resolve_team_id(cur, ALIAS_SOURCE, match["homeTeam"]["name"],
+                                        match["homeTeam"].get("crest"))
+        away_team_id = resolve_team_id(cur, ALIAS_SOURCE, match["awayTeam"]["name"],
+                                        match["awayTeam"].get("crest"))
         kickoff_at = datetime.fromisoformat(match["utcDate"].replace("Z", "+00:00"))
 
         cur.execute(
@@ -111,8 +113,10 @@ def upsert_fixtures(cur, matches: list[dict]) -> int:
 def backfill_finished_matches(cur, matches: list[dict]) -> int:
     inserted = 0
     for match in matches:
-        home_team_id = resolve_team_id(cur, ALIAS_SOURCE, match["homeTeam"]["name"])
-        away_team_id = resolve_team_id(cur, ALIAS_SOURCE, match["awayTeam"]["name"])
+        home_team_id = resolve_team_id(cur, ALIAS_SOURCE, match["homeTeam"]["name"],
+                                        match["homeTeam"].get("crest"))
+        away_team_id = resolve_team_id(cur, ALIAS_SOURCE, match["awayTeam"]["name"],
+                                        match["awayTeam"].get("crest"))
         match_date = datetime.fromisoformat(match["utcDate"].replace("Z", "+00:00")).date()
         full_time = match["score"]["fullTime"]
 

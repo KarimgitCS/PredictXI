@@ -12,6 +12,8 @@ class FixtureOut(BaseModel):
     kickoff_at: datetime
     home_team: str
     away_team: str
+    home_crest_url: str | None
+    away_crest_url: str | None
     status: str
 
 
