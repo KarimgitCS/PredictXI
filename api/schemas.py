@@ -17,6 +17,18 @@ class FixtureOut(BaseModel):
     status: str
 
 
+class StandingOut(BaseModel):
+    team: str
+    crest_url: str | None
+    position: int
+    played: int
+    points: int
+    wins: int
+    draws: int
+    losses: int
+    goal_diff: int
+
+
 class PredictionOut(BaseModel):
     fixture_id: int
     home_team: str

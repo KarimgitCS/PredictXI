@@ -336,6 +336,33 @@ main {
 .table-view th:first-child, .table-view td:first-child { text-align: left; }
 .table-view th { color: var(--text-muted); font-weight: 600; }
 
+.standings-table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+}
+.standings-table th, .standings-table td {
+  text-align: right;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--gridline);
+  font-variant-numeric: tabular-nums;
+}
+.standings-table th:nth-child(2), .standings-table td:nth-child(2) { text-align: left; }
+.standings-table th {
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.standings-team {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.standings-team .team-crest { width: 20px; height: 20px; }
+
 /* Predict-your-own page — one card per fixture, all visible at once */
 .predict-fixtures-list { margin-top: 1rem; }
 .predict-fixture-card .fixture-matchup { margin-bottom: 0.25rem; }

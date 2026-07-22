@@ -1,5 +1,6 @@
 """
-FastAPI app: GET /health, GET /matches, GET /predict, GET /calibration.
+FastAPI app: GET /health, GET /matches, GET /predict, GET /calibration,
+GET /standings.
 Also serves the frontend as static files at "/" — visit http://localhost:8000/
 for the whole demo (fixture list + calibration chart), not just the API.
 
@@ -21,7 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from api.db import close_pool, get_connection, get_db, init_pool
-from api.routers import matches, predict
+from api.routers import matches, predict, standings
 
 REPORTS_DIR = Path(__file__).parent.parent / "reports"
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
@@ -67,6 +68,7 @@ app.add_middleware(
 
 app.include_router(matches.router)
 app.include_router(predict.router)
+app.include_router(standings.router)
 
 
 @app.get("/health")

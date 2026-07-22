@@ -57,6 +57,16 @@ def test_matches_respects_limit_param(client):
     assert len(response.json()) == 3
 
 
+def test_standings_returns_20_teams_ranked(client):
+    response = client.get("/standings")
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 20
+    assert {"team", "position", "played", "points", "wins", "draws", "losses", "goal_diff"} <= body[0].keys()
+    positions = [row["position"] for row in body]
+    assert positions == sorted(positions)
+
+
 def test_calibration_returns_both_models(client):
     response = client.get("/calibration")
     assert response.status_code == 200
