@@ -1,8 +1,8 @@
 """
-FastAPI app: GET /health, GET /matches, GET /predict, GET /calibration,
-GET /standings.
+FastAPI app: GET /health, GET /matches, GET /predict, GET /standings,
+GET /result.
 Also serves the frontend as static files at "/" — visit http://localhost:8000/
-for the whole demo (fixture list + calibration chart), not just the API.
+for the whole demo, not just the API.
 
 Run locally:
     uvicorn api.main:app --reload
@@ -11,20 +11,18 @@ Run in Docker:
     docker compose up api
 """
 
-import json
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from api.db import close_pool, get_connection, get_db, init_pool
 from api.routers import matches, predict, standings
 
-REPORTS_DIR = Path(__file__).parent.parent / "reports"
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "ml"))
@@ -78,18 +76,6 @@ def health(conn=Depends(get_db)):
     with conn.cursor() as cur:
         cur.execute("SELECT 1;")
     return {"status": "ok"}
-
-
-@app.get("/calibration")
-def calibration():
-    """Serves reports/calibration_data.json (the model-training step's
-    evaluation output) for the frontend's calibration chart — no DB query,
-    just the file already generated, so training and serving never show
-    different numbers."""
-    path = REPORTS_DIR / "calibration_data.json"
-    if not path.exists():
-        raise HTTPException(status_code=503, detail="No calibration data yet — run ml/evaluate.py.")
-    return json.loads(path.read_text())
 
 
 # Mounted last, at "/" — every API route above is registered first, so it's
