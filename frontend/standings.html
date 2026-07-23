@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PredictXI — Make your prediction</title>
+  <title>PredictXI — League table</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet" />
@@ -31,23 +31,21 @@
     <p class="subtitle">Match outcome predictions, with calibrated probabilities.</p>
     <nav class="page-nav">
       <a href="index.html">Fixtures</a>
-      <a href="predict.html" class="active">Predict</a>
-      <a href="standings.html">Standings</a>
+      <a href="predict.html">Predict</a>
+      <a href="standings.html" class="active">Standings</a>
     </nav>
   </header>
 
   <main>
-    <section class="panel" aria-labelledby="predict-heading">
+    <section class="panel" aria-labelledby="standings-heading">
       <div class="panel-head">
-        <h2 id="predict-heading">Make your prediction</h2>
+        <h2 id="standings-heading">League table</h2>
       </div>
       <p class="panel-description">
-        Call the outcome yourself for each of the next 10 matches — just for
-        fun, nothing here is saved anywhere.
+        Current Premier League standings, live from football-data.org.
       </p>
-      <p id="predict-status" class="status-text">Loading fixtures…</p>
-
-      <div id="predict-fixtures" class="predict-fixtures-list"></div>
+      <p id="standings-status" class="status-text">Loading standings…</p>
+      <div id="standings-table-wrap"></div>
     </section>
   </main>
 
@@ -55,7 +53,6 @@
     <p>Portfolio project. Predictions are a rolling-form statistical estimate, not betting advice.</p>
   </footer>
 
-  <script src="team-colors.js"></script>
-  <script src="predict.js"></script>
+  <script src="standings.js"></script>
 </body>
 </html>
