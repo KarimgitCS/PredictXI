@@ -42,12 +42,25 @@
         <h2 id="predict-heading">Make your prediction</h2>
       </div>
       <p class="panel-description">
-        Call the outcome yourself for each of the next 10 matches — just for
-        fun, nothing here is saved anywhere.
+        Call the outcome yourself for each of the next 10 matches. Saved in
+        this browser only — once the matchweek is played, come back to see
+        if you called it.
       </p>
       <p id="predict-status" class="status-text">Loading fixtures…</p>
 
       <div id="predict-fixtures" class="predict-fixtures-list"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="my-predictions-heading">
+      <div class="panel-head">
+        <h2 id="my-predictions-heading">Your predictions</h2>
+      </div>
+      <p class="panel-description">
+        Saved in your browser (not on any server). Shows as pending until
+        that match has actually been played.
+      </p>
+      <p id="my-predictions-status" class="status-text">No saved predictions yet — make one above.</p>
+      <ul id="my-predictions-list" class="fixtures-list"></ul>
     </section>
   </main>
 

@@ -29,6 +29,13 @@ class StandingOut(BaseModel):
     goal_diff: int
 
 
+class ResultOut(BaseModel):
+    played: bool
+    result: str | None
+    home_goals: int | None
+    away_goals: int | None
+
+
 class PredictionOut(BaseModel):
     fixture_id: int
     home_team: str

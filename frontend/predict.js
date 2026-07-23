@@ -1,6 +1,28 @@
 // Point this at wherever the API is running.
 const API_BASE = "http://localhost:8000";
 
+// Saved in this browser only (localStorage) — never sent to or stored on
+// any server. The one network call this page makes per fixture (/predict,
+// for the most-likely-score line) and per saved pick (/result, to check
+// the outcome) don't carry the user's personal choice at all.
+const STORAGE_KEY = "predictxi_predictions";
+
+function loadSavedPredictions() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+  } catch {
+    return [];
+  }
+}
+
+function savePrediction(record) {
+  const all = loadSavedPredictions();
+  const index = all.findIndex((p) => p.fixture_id === record.fixture_id);
+  if (index >= 0) all[index] = record;
+  else all.push(record);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+}
+
 function formatKickoff(isoString) {
   return new Date(isoString).toLocaleString(undefined, {
     weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
@@ -25,20 +47,34 @@ function ordinal(n) {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
-// Position is live, not a fixed label — computed from match_features as of
-// right now, so it updates on its own as results come in.
 function positionLabel(position) {
   return position != null ? ` <span class="team-position">(${ordinal(position)})</span>` : "";
 }
 
-// Purely visual — just marks which button you clicked. Nothing is sent
-// anywhere or saved; there's no message, popup, or network call on click.
-function selectChoice(card, btn) {
-  card.querySelectorAll(".predict-choice-btn").forEach((b) => b.classList.remove("selected"));
-  btn.classList.add("selected");
+function pickLabel(pred) {
+  if (pred.choice === "H") return pred.home_team;
+  if (pred.choice === "A") return pred.away_team;
+  return "a draw";
 }
 
-function predictFixtureCard(fixture, prediction) {
+function selectChoice(fixture, card, btn) {
+  card.querySelectorAll(".predict-choice-btn").forEach((b) => b.classList.remove("selected"));
+  btn.classList.add("selected");
+
+  savePrediction({
+    fixture_id: fixture.fixture_id,
+    season: fixture.season,
+    home_team: fixture.home_team,
+    away_team: fixture.away_team,
+    matchday: fixture.matchday,
+    kickoff_at: fixture.kickoff_at,
+    choice: btn.dataset.choice,
+  });
+
+  renderMyPredictions();
+}
+
+function predictFixtureCard(fixture, prediction, savedChoice) {
   const colors = resolveMatchColors(fixture.home_team, fixture.away_team);
   const drawColor = getComputedStyle(document.documentElement).getPropertyValue("--baseline").trim();
 
@@ -48,6 +84,8 @@ function predictFixtureCard(fixture, prediction) {
   const scoreLine = prediction
     ? `<p class="likely-score">Most likely score: <strong>${fixture.home_team} ${prediction.predicted_home_goals}–${prediction.predicted_away_goals} ${fixture.away_team}</strong></p>`
     : "";
+
+  const selected = (choice) => (savedChoice === choice ? " selected" : "");
 
   card.innerHTML = `
     <div class="fixture-matchup">
@@ -66,25 +104,82 @@ function predictFixtureCard(fixture, prediction) {
     <p class="fixture-kickoff">${formatKickoff(fixture.kickoff_at)}</p>
     ${scoreLine}
     <div class="predict-choice-row">
-      <button class="predict-choice-btn" data-choice="H" style="--chosen-color:${colors.home.hex}">
+      <button class="predict-choice-btn${selected("H")}" data-choice="H" style="--chosen-color:${colors.home.hex}">
         ${crestOrPlaceholder(fixture.home_crest_url)}
         <span>${fixture.home_team}</span>
       </button>
-      <button class="predict-choice-btn" data-choice="D" style="--chosen-color:${drawColor}">
+      <button class="predict-choice-btn${selected("D")}" data-choice="D" style="--chosen-color:${drawColor}">
         <span class="draw-icon">DRAW</span>
         <span>Draw</span>
       </button>
-      <button class="predict-choice-btn" data-choice="A" style="--chosen-color:${colors.away.hex}">
+      <button class="predict-choice-btn${selected("A")}" data-choice="A" style="--chosen-color:${colors.away.hex}">
         ${crestOrPlaceholder(fixture.away_crest_url)}
         <span>${fixture.away_team}</span>
       </button>
     </div>`;
 
   card.querySelectorAll(".predict-choice-btn").forEach((btn) => {
-    btn.addEventListener("click", () => selectChoice(card, btn));
+    btn.addEventListener("click", () => selectChoice(fixture, card, btn));
   });
 
   return card;
+}
+
+function myPredictionCard(pred) {
+  const li = document.createElement("li");
+  li.className = "fixture-card my-prediction-card";
+  li.innerHTML = `
+    <div class="fixture-matchup">
+      <span class="team-name">${pred.home_team}</span>
+      <span class="vs">vs</span>
+      <span class="team-name">${pred.away_team}</span>
+    </div>
+    <p class="fixture-kickoff">${formatKickoff(pred.kickoff_at)}${pred.matchday ? ` · Matchweek ${pred.matchday}` : ""}</p>
+    <p class="my-prediction-pick">Your pick: <strong>${pickLabel(pred)}</strong>${pred.choice !== "D" ? " to win" : ""}</p>
+    <p class="my-prediction-outcome status-text">Checking result…</p>`;
+
+  const outcomeEl = li.querySelector(".my-prediction-outcome");
+  fetch(`${API_BASE}/result?season=${encodeURIComponent(pred.season)}` +
+        `&home_team=${encodeURIComponent(pred.home_team)}&away_team=${encodeURIComponent(pred.away_team)}`)
+    .then((r) => (r.ok ? r.json() : null))
+    .then((result) => {
+      if (!result) {
+        outcomeEl.textContent = "Couldn't check the result.";
+        return;
+      }
+      if (!result.played) {
+        outcomeEl.textContent = "Pending — not played yet.";
+        return;
+      }
+      const correct = result.result === pred.choice;
+      outcomeEl.classList.remove("status-text");
+      outcomeEl.innerHTML =
+        `Final score: <strong>${pred.home_team} ${result.home_goals}–${result.away_goals} ${pred.away_team}</strong> — ` +
+        (correct
+          ? `<span class="pick-correct">You called it</span>`
+          : `<span class="pick-incorrect">Not this time</span>`);
+    })
+    .catch(() => {
+      outcomeEl.textContent = "Couldn't check the result.";
+    });
+
+  return li;
+}
+
+function renderMyPredictions() {
+  const statusEl = document.getElementById("my-predictions-status");
+  const listEl = document.getElementById("my-predictions-list");
+  const saved = loadSavedPredictions();
+
+  listEl.innerHTML = "";
+  if (saved.length === 0) {
+    statusEl.hidden = false;
+    return;
+  }
+  statusEl.hidden = true;
+
+  const sorted = [...saved].sort((a, b) => new Date(b.kickoff_at) - new Date(a.kickoff_at));
+  sorted.forEach((pred) => listEl.appendChild(myPredictionCard(pred)));
 }
 
 async function init() {
@@ -108,15 +203,22 @@ async function init() {
       )
     );
 
+    const saved = loadSavedPredictions();
+    const savedByFixtureId = new Map(saved.map((p) => [p.fixture_id, p.choice]));
+
     const ul = document.createElement("ul");
     ul.className = "fixtures-list";
-    fixtures.forEach((fixture, i) => ul.appendChild(predictFixtureCard(fixture, predictions[i])));
+    fixtures.forEach((fixture, i) => {
+      ul.appendChild(predictFixtureCard(fixture, predictions[i], savedByFixtureId.get(fixture.fixture_id)));
+    });
     listEl.appendChild(ul);
 
     statusEl.hidden = true;
   } catch (err) {
     statusEl.textContent = "Couldn't reach the API — is it running at " + API_BASE + "?";
   }
+
+  renderMyPredictions();
 }
 
 init();

@@ -1,10 +1,11 @@
-"""GET /matches — list upcoming fixtures."""
+"""GET /matches — list upcoming fixtures. GET /result — check whether a
+specific match has been played yet, and if so, what happened."""
 
 import psycopg2.extras
 from fastapi import APIRouter, Depends, Query
 
 from api.db import get_db
-from api.schemas import FixtureOut
+from api.schemas import FixtureOut, ResultOut
 
 router = APIRouter()
 
@@ -32,3 +33,30 @@ def list_matches(limit: int = Query(default=10, ge=1, le=100), conn=Depends(get_
             (limit,),
         )
         return cur.fetchall()
+
+
+@router.get("/result", response_model=ResultOut)
+def get_result(season: str, home_team: str, away_team: str, conn=Depends(get_db)):
+    """Looks up a completed match by (season, home team, away team) — not by
+    fixture_id, since football-data.org's fixture id isn't stored once a
+    fixture is played and moved into `matches` (see etl/fetch_live_data.py).
+    A given ordered (home, away) pair is unique within a season in a
+    standard round-robin, so this is a reliable lookup key. Returns
+    played=false (not a 404) if the match hasn't happened yet — that's an
+    expected, common case for a saved prediction, not an error."""
+    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        cur.execute(
+            """
+            SELECT m.result, m.home_goals, m.away_goals
+            FROM matches m
+            JOIN teams ht ON ht.team_id = m.home_team_id
+            JOIN teams at ON at.team_id = m.away_team_id
+            WHERE m.season = %s AND ht.name = %s AND at.name = %s;
+            """,
+            (season, home_team, away_team),
+        )
+        row = cur.fetchone()
+
+    if row is None:
+        return ResultOut(played=False, result=None, home_goals=None, away_goals=None)
+    return ResultOut(played=True, result=row["result"], home_goals=row["home_goals"], away_goals=row["away_goals"])

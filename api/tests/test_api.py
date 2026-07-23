@@ -67,12 +67,31 @@ def test_standings_returns_20_teams_ranked(client):
     assert positions == sorted(positions)
 
 
-def test_calibration_returns_both_models(client):
-    response = client.get("/calibration")
+def test_result_unplayed_fixture_returns_not_played(client):
+    fixtures = client.get("/matches").json()
+    fixture = fixtures[0]
+
+    response = client.get(
+        "/result",
+        params={
+            "season": fixture["season"],
+            "home_team": fixture["home_team"],
+            "away_team": fixture["away_team"],
+        },
+    )
     assert response.status_code == 200
     body = response.json()
-    assert set(body.keys()) == {"logreg", "xgboost"}
-    assert set(body["logreg"].keys()) == {"H", "D", "A"}
+    assert body == {"played": False, "result": None, "home_goals": None, "away_goals": None}
+
+
+def test_result_played_match_returns_final_score(client):
+    response = client.get(
+        "/result",
+        params={"season": "2019-2020", "home_team": "Liverpool", "away_team": "Norwich City"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body == {"played": True, "result": "H", "home_goals": 4, "away_goals": 1}
 
 
 def test_predict_unknown_fixture_returns_404(client):
