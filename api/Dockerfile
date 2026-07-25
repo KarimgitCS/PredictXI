@@ -22,7 +22,11 @@ COPY ml/ ml/
 COPY api/ api/
 COPY reports/ reports/
 COPY frontend/ frontend/
+RUN chmod +x api/entrypoint.sh
 
 ENV PYTHONPATH=/app
 
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Trains a fresh model against the hosted DB before serving — see
+# entrypoint.sh for why. $PORT lets platforms like Render assign their own
+# port; docker-compose leaves it unset and gets the 8000 default.
+ENTRYPOINT ["api/entrypoint.sh"]
