@@ -36,6 +36,14 @@ class ResultOut(BaseModel):
     away_goals: int | None
 
 
+class MatchResultOut(BaseModel):
+    home_team: str
+    away_team: str
+    result: str
+    home_goals: int
+    away_goals: int
+
+
 class PredictionOut(BaseModel):
     fixture_id: int
     home_team: str

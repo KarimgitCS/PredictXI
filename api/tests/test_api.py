@@ -6,6 +6,7 @@ approach in this repo; see PLAN.md). Any prediction row this suite inserts
 is deleted afterward so repeated test runs don't clutter real data.
 """
 
+import asyncio
 import concurrent.futures
 import os
 import time
@@ -15,6 +16,7 @@ import pytest
 from dotenv import load_dotenv
 from fastapi.testclient import TestClient
 
+from api import main as api_main
 from api.main import app
 
 load_dotenv()
@@ -22,8 +24,12 @@ load_dotenv()
 
 @pytest.fixture(scope="module")
 def client():
-    with TestClient(app) as c:  # triggers the lifespan (pool + model load)
-        yield c
+    # The lifespan would otherwise start the background football-data.org
+    # refresh (when an API key is in .env) and mutate real data mid-suite.
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("LIVE_REFRESH_MINUTES", "0")
+        with TestClient(app) as c:  # triggers the lifespan (pool + model load)
+            yield c
 
 
 @pytest.fixture(scope="module")
@@ -92,6 +98,45 @@ def test_result_played_match_returns_final_score(client):
     assert response.status_code == 200
     body = response.json()
     assert body == {"played": True, "result": "H", "home_goals": 4, "away_goals": 1}
+
+
+def test_results_lists_played_matches_for_a_season(client):
+    response = client.get("/results", params={"season": "2019-2020"})
+    assert response.status_code == 200
+    rows = response.json()
+    assert len(rows) == 380
+    assert {"home_team", "away_team", "result", "home_goals", "away_goals"} == rows[0].keys()
+    liverpool_norwich = [r for r in rows if r["home_team"] == "Liverpool" and r["away_team"] == "Norwich City"]
+    assert liverpool_norwich == [
+        {"home_team": "Liverpool", "away_team": "Norwich City", "result": "H", "home_goals": 4, "away_goals": 1}
+    ]
+
+
+def test_results_unknown_season_is_empty(client):
+    response = client.get("/results", params={"season": "1900-1901"})
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_live_refresh_loop_runs_repeatedly_and_survives_failures(monkeypatch):
+    calls = []
+
+    def flaky_refresh(database_url, api_key):
+        calls.append((database_url, api_key))
+        if len(calls) == 1:
+            raise RuntimeError("football-data.org is down")
+        return {"finished_inserted": 0}
+
+    monkeypatch.setattr(api_main, "refresh_live_data", flaky_refresh)
+
+    async def run():
+        task = asyncio.create_task(api_main.live_refresh_loop("db-url", "key", 0.01))
+        await asyncio.sleep(0.2)
+        task.cancel()
+
+    asyncio.run(run())
+    assert len(calls) >= 2  # ran again after the first call raised
+    assert calls[0] == ("db-url", "key")
 
 
 def test_predict_unknown_fixture_returns_404(client):

@@ -15,10 +15,12 @@ RUN apt-get update \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Only what the API actually reads at runtime — not db/, etl/, data/.
+# Only what the API actually reads at runtime — not db/ or data/.
+# etl/: the API re-runs etl/fetch_live_data.py on a timer (see api/main.py).
 # reports/: GET /calibration serves reports/calibration_data.json.
 # frontend/: served as static files at "/" (see api/main.py).
 COPY ml/ ml/
+COPY etl/ etl/
 COPY api/ api/
 COPY reports/ reports/
 COPY frontend/ frontend/

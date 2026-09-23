@@ -5,7 +5,7 @@ import psycopg2.extras
 from fastapi import APIRouter, Depends, Query
 
 from api.db import get_db
-from api.schemas import FixtureOut, ResultOut
+from api.schemas import FixtureOut, MatchResultOut, ResultOut
 
 router = APIRouter()
 
@@ -60,3 +60,24 @@ def get_result(season: str, home_team: str, away_team: str, conn=Depends(get_db)
     if row is None:
         return ResultOut(played=False, result=None, home_goals=None, away_goals=None)
     return ResultOut(played=True, result=row["result"], home_goals=row["home_goals"], away_goals=row["away_goals"])
+
+
+@router.get("/results", response_model=list[MatchResultOut])
+def list_results(season: str, conn=Depends(get_db)):
+    """Every played match in a season, in one call. The saved-predictions
+    page matches its picks against this locally instead of calling /result
+    once per pick — a season of picks would otherwise be up to 380
+    concurrent requests against a 20-connection pool."""
+    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        cur.execute(
+            """
+            SELECT ht.name AS home_team, at.name AS away_team,
+                   m.result, m.home_goals, m.away_goals
+            FROM matches m
+            JOIN teams ht ON ht.team_id = m.home_team_id
+            JOIN teams at ON at.team_id = m.away_team_id
+            WHERE m.season = %s AND m.result IS NOT NULL;
+            """,
+            (season,),
+        )
+        return cur.fetchall()

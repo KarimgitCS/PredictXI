@@ -378,6 +378,49 @@ main {
   color: var(--text-secondary);
   margin: 0.15rem 0;
 }
+.week-groups { display: flex; flex-direction: column; gap: 0.6rem; }
+.week-group {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-1);
+}
+.week-group > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem 1rem;
+  font-family: "Fredoka", system-ui, sans-serif;
+  font-weight: 600;
+}
+.week-group > summary::-webkit-details-marker { display: none; }
+.week-group > summary::before {
+  content: "▸";
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+.week-group[open] > summary::before { transform: rotate(90deg); }
+.week-title { flex: 1; }
+.week-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-family: system-ui, sans-serif;
+  font-weight: 400;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+.week-record {
+  font-family: "Fredoka", system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 1.15rem;
+  letter-spacing: 0.02em;
+}
+.week-count { color: var(--text-muted); }
+.week-group .fixtures-list { padding: 0 1rem 1rem; }
+
 .pick-correct {
   color: #1a8f3c;
   font-weight: 600;

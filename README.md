@@ -142,9 +142,15 @@ docker compose up api
 uvicorn api.main:app --reload
 ```
 
-Either way, visit **http://localhost:8000/** for the full demo — the fixture
-list and calibration chart. The raw API is also there: `/matches`,
-`/predict?fixture_id=...`, `/calibration`, `/health`.
+Either way, visit **http://localhost:8000/** for the full demo. The raw API
+is also there: `/matches`, `/predict?fixture_id=...`, `/standings`,
+`/results?season=...`, `/health`.
+
+While it runs, the API refreshes live data by itself (on startup, then every
+30 minutes — `LIVE_REFRESH_MINUTES`, `0` to disable; needs
+`FOOTBALL_DATA_ORG_API_KEY`): finished matches move into `matches`, upcoming
+fixtures and standings update, and the Predict page's saved picks pick up
+the new results. No need to re-run `etl/fetch_live_data.py` by hand.
 
 ## Deployment (Render)
 
