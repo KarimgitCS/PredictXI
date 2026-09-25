@@ -39,7 +39,8 @@ actually running the app (not just from tests).
 ## By the numbers
 
 - **10 seasons** of historical data (2010–11 → 2019–20): **3,800 matches**
-  loaded, plus **380 current-season fixtures** and **41 teams** tracked live.
+  loaded, plus the current season's results and fixtures (refreshed
+  automatically) across **41 teams**.
 - **Held out on the 2019–20 season** (380 matches, never seen during
   training or calibration): accuracy 53.16% (logreg) / 51.58% (XGBoost);
   Brier score 0.6101 / 0.6103; log loss 1.0341 / 1.0243 — XGBoost wins on
