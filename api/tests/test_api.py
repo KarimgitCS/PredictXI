@@ -22,6 +22,25 @@ from api.main import app
 load_dotenv()
 
 
+def _install_in_memory_model(app):
+    """CI has no model files (they're gitignored, and each environment
+    registers its own path), so /predict would answer 503. Train one in
+    memory instead. It reuses an existing `models` row's id so a logged
+    prediction's foreign key holds, without writing anything to `models`."""
+    from ml.train import run_training_pipeline
+
+    conn = psycopg2.connect(os.environ["DATABASE_URL"])
+    try:
+        trained = run_training_pipeline(conn)
+        with conn.cursor() as cur:
+            cur.execute("SELECT model_id FROM models ORDER BY model_id DESC LIMIT 1;")
+            model_id = cur.fetchone()[0]
+    finally:
+        conn.close()
+    app.state.active_model = trained["models"]["xgboost"]
+    app.state.active_model_info = {"model_id": model_id, "name": "xgboost"}
+
+
 @pytest.fixture(scope="module")
 def client():
     # The lifespan would otherwise start the background football-data.org
@@ -29,6 +48,8 @@ def client():
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("LIVE_REFRESH_MINUTES", "0")
         with TestClient(app) as c:  # triggers the lifespan (pool + model load)
+            if app.state.active_model is None:
+                _install_in_memory_model(app)
             yield c
 
 
