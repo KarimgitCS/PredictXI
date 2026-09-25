@@ -59,6 +59,9 @@ the project looks like now differs in these ways:
   30, `0` disables). Finished matches move from `fixtures` into `matches`.
   Batching the writes and caching team lookups cut a refresh from ~130 s to
   ~18 s (most of that is the deliberate wait for the API's rate limit).
+- **Keeps itself awake on Render.** A background task pings the service's own
+  `/health` (from `RENDER_EXTERNAL_URL`) every `KEEP_ALIVE_MINUTES` (default
+  10), so the free tier doesn't sleep after 15 idle minutes.
 - **Deployable as one container.** The container trains and registers a model
   at startup (no model files in the image), serves the API and the frontend on
   one port, and the frontend calls the API on its own origin

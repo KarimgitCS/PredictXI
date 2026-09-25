@@ -192,11 +192,13 @@ that's never seen this codebase before.
 5. Pick the **Free** instance type and click **Create Web Service**. First
    build takes a few minutes (installing pandas/scikit-learn/XGBoost);
    Render gives you a `https://<name>.onrender.com` URL once it's live.
-6. Free-tier services sleep after 15 minutes idle. The first request after
-   that wakes the container **and** re-runs the training step above, so
-   expect the very first load after a lull to take ~10–20 seconds longer
-   than the numbers in "By the numbers" above — everything after that is
-   normal speed until it sleeps again.
+6. Free-tier services sleep after 15 minutes without traffic, and waking one
+   re-runs the training step above (a slow first request). To avoid that, on
+   Render the API pings its own `/health` every 10 minutes
+   (`KEEP_ALIVE_MINUTES`, `0` to disable), which keeps the service awake, the
+   live-data refresh running, and the hosted database from pausing. One
+   always-on free service uses about 744 of the 750 free instance hours per
+   month, so this fits for a single service per Render workspace.
 
 ## Tests
 
@@ -228,9 +230,10 @@ secret**, name `DATABASE_URL`, value your hosted Postgres connection string
 - **Teams outside the 2010–2020 historical window** (promoted since, or not
   yet backfilled by the live API this preseason) have no rolling form until
   they accumulate tracked matches — shown as NULL, not a fabricated guess.
-- **Free-tier hosting sleeps when idle** — see "Deployment" above for what
-  that means for the first request after a lull. The background refresh only
-  runs while the service is awake.
+- **Free-tier hosting sleeps without traffic** unless the self-ping described
+  under "Deployment" keeps it awake. If the service is ever stopped or
+  restarted, the first request after a wake is slow (it retrains the model)
+  and the background refresh only runs while the service is up.
 - **Free-tier databases pause after inactivity** (Supabase, Neon) and, on
   some plans, are eventually deleted — the app can't start until the
   database is restored.

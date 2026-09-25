@@ -19,6 +19,7 @@ import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import httpx
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -44,6 +45,30 @@ logger = logging.getLogger("uvicorn.error")
 # missing API key). The free tier allows 10 requests/minute and one refresh
 # is 3 requests, so 30 minutes is far inside the limit.
 DEFAULT_REFRESH_MINUTES = 30
+
+
+# Render's free tier sleeps a service after 15 minutes without inbound
+# traffic. On Render, RENDER_EXTERNAL_URL holds the service's public address;
+# requesting our own /health through it counts as traffic (and runs SELECT 1
+# against the database, keeping a free hosted Postgres from pausing).
+# 0 disables it.
+DEFAULT_KEEP_ALIVE_MINUTES = 10
+
+
+async def _ping(url: str) -> None:
+    async with httpx.AsyncClient(timeout=10) as client:
+        await client.get(f"{url}/health")
+
+
+async def keep_alive_loop(url: str, interval_seconds: float, ping=_ping) -> None:
+    """Pings the service's own public URL forever. A failed ping is logged
+    and retried next tick — it must never take the app down."""
+    while True:
+        await asyncio.sleep(interval_seconds)
+        try:
+            await ping(url)
+        except Exception:
+            logger.warning("keep-alive ping to %s failed", url, exc_info=True)
 
 
 async def live_refresh_loop(database_url: str, api_key: str, interval_seconds: float) -> None:
@@ -99,10 +124,19 @@ async def lifespan(app: FastAPI):
             live_refresh_loop(os.environ["DATABASE_URL"], api_key, minutes * 60)
         )
 
+    keep_alive_task = None
+    public_url = os.environ.get("RENDER_EXTERNAL_URL")
+    keep_alive_minutes = float(os.environ.get("KEEP_ALIVE_MINUTES", DEFAULT_KEEP_ALIVE_MINUTES))
+    if public_url and keep_alive_minutes > 0:
+        keep_alive_task = asyncio.create_task(
+            keep_alive_loop(public_url.rstrip("/"), keep_alive_minutes * 60)
+        )
+
     yield
 
-    if refresh_task is not None:
-        refresh_task.cancel()
+    for task in (refresh_task, keep_alive_task):
+        if task is not None:
+            task.cancel()
     close_pool()
 
 

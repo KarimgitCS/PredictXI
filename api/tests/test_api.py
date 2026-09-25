@@ -158,6 +158,24 @@ def test_connection_closed_by_server_while_idle_is_replaced(client, db_conn):
     assert client.get("/matches").status_code == 200
 
 
+def test_keep_alive_loop_pings_repeatedly_and_survives_failures():
+    pings = []
+
+    async def flaky_ping(url):
+        pings.append(url)
+        if len(pings) == 1:
+            raise RuntimeError("network blip")
+
+    async def run():
+        task = asyncio.create_task(api_main.keep_alive_loop("https://example.test", 0.01, ping=flaky_ping))
+        await asyncio.sleep(0.2)
+        task.cancel()
+
+    asyncio.run(run())
+    assert len(pings) >= 2  # kept going after the first ping raised
+    assert pings[0] == "https://example.test"
+
+
 def test_predict_unknown_fixture_returns_404(client):
     response = client.get("/predict", params={"fixture_id": 999999999})
     assert response.status_code == 404
