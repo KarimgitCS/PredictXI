@@ -1,6 +1,3 @@
-// Point this at wherever the API is running.
-const API_BASE = "http://localhost:8000";
-
 function formatKickoffTime(isoString) {
   return new Date(isoString).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 }
@@ -154,7 +151,7 @@ async function loadFixtures() {
     renderFixtureGroups(fixtures, predictionsById);
     statusEl.hidden = true;
   } catch (err) {
-    statusEl.textContent = "Couldn't reach the API — is it running at " + API_BASE + "?";
+    statusEl.textContent = "Couldn't reach the API — is the server running?";
   }
 }
 

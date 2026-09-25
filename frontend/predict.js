@@ -1,10 +1,7 @@
-// Point this at wherever the API is running.
-const API_BASE = "http://localhost:8000";
-
 // Saved in this browser only (localStorage) — never sent to or stored on
 // any server. The one network call this page makes per fixture (/predict,
-// for the most-likely-score line) and per saved pick (/result, to check
-// the outcome) don't carry the user's personal choice at all.
+// for the most-likely-score line) and one per season of saved picks (/results,
+// to check the outcomes) don't carry the user's personal choice at all.
 const STORAGE_KEY = "predictxi_predictions";
 
 function loadSavedPredictions() {
@@ -315,7 +312,7 @@ async function init() {
 
     statusEl.hidden = true;
   } catch (err) {
-    statusEl.textContent = "Couldn't reach the API — is it running at " + API_BASE + "?";
+    statusEl.textContent = "Couldn't reach the API — is the server running?";
   }
 }
 

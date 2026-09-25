@@ -1,6 +1,3 @@
-// Point this at wherever the API is running.
-const API_BASE = "http://localhost:8000";
-
 async function loadStandings() {
   const statusEl = document.getElementById("standings-status");
   const wrapEl = document.getElementById("standings-table-wrap");
@@ -38,7 +35,7 @@ async function loadStandings() {
     wrapEl.appendChild(table);
     statusEl.hidden = true;
   } catch (err) {
-    statusEl.textContent = "Couldn't reach the API — is it running at " + API_BASE + "?";
+    statusEl.textContent = "Couldn't reach the API — is the server running?";
   }
 }
 
