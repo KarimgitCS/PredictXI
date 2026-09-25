@@ -139,6 +139,25 @@ def test_live_refresh_loop_runs_repeatedly_and_survives_failures(monkeypatch):
     assert calls[0] == ("db-url", "key")
 
 
+def test_connection_closed_by_server_while_idle_is_replaced(client, db_conn):
+    """Regression: after sitting idle, the hosted DB closes pooled
+    connections; the next request used to fail with "server closed the
+    connection unexpectedly". The pool must notice and open a fresh one."""
+    from api import db as api_db
+
+    with api_db.get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT pg_backend_pid();")
+            pid = cur.fetchone()[0]
+
+    with db_conn.cursor() as cur:
+        cur.execute("SELECT pg_terminate_backend(%s);", (pid,))
+    db_conn.commit()
+    api_db._last_used.clear()  # as if it had sat idle long enough to need a check
+
+    assert client.get("/matches").status_code == 200
+
+
 def test_predict_unknown_fixture_returns_404(client):
     response = client.get("/predict", params={"fixture_id": 999999999})
     assert response.status_code == 404

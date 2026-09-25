@@ -1,6 +1,7 @@
 """
 FastAPI app: GET /health, GET /matches, GET /predict, GET /standings,
-GET /result.
+GET /result, GET /results. Refreshes live data from football-data.org in the
+background (see live_refresh_loop).
 Also serves the frontend as static files at "/" — visit http://localhost:8000/
 for the whole demo, not just the API.
 
@@ -62,20 +63,33 @@ async def live_refresh_loop(database_url: str, api_key: str, interval_seconds: f
 async def lifespan(app: FastAPI):
     init_pool()
 
+    # The database is shared by every environment (laptop, Docker, Render),
+    # and each one registers its own model file at its own path — so the
+    # active row's artifact may only exist on the machine that trained it.
+    # Prefer the active model; if its file isn't here, fall back to the best
+    # registered model (lowest log loss) whose file is.
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT model_id, name, artifact_path FROM models WHERE is_active = true;"
+                """
+                SELECT model_id, name, artifact_path, is_active FROM models
+                ORDER BY is_active DESC, (metrics->>'log_loss')::float ASC, model_id DESC;
+                """
             )
-            row = cur.fetchone()
+            candidates = cur.fetchall()
 
-    if row is not None:
-        model_id, name, artifact_path = row
-        app.state.active_model = load_model(artifact_path)
-        app.state.active_model_info = {"model_id": model_id, "name": name}
-    else:
-        app.state.active_model = None
-        app.state.active_model_info = None
+    app.state.active_model = None
+    app.state.active_model_info = None
+    for model_id, name, artifact_path, is_active in candidates:
+        if Path(artifact_path).exists():
+            app.state.active_model = load_model(artifact_path)
+            app.state.active_model_info = {"model_id": model_id, "name": name}
+            if not is_active:
+                logger.warning(
+                    "active model's file isn't on this machine; serving model %s (%s) instead",
+                    model_id, name,
+                )
+            break
 
     refresh_task = None
     api_key = os.environ.get("FOOTBALL_DATA_ORG_API_KEY")
