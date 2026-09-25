@@ -11,7 +11,8 @@ speed. -->
 Premier League match outcome predictor (Home / Draw / Away) with calibrated
 probabilities, comparing logistic regression against XGBoost. Feature
 engineering happens entirely in Postgres via leakage-safe SQL views; the API
-and frontend serve whatever the active model predicts.
+serves whatever the active model predicts, and the frontend lets you make
+and track your own predictions against the model's.
 
 Portfolio project — see [PLAN.md](PLAN.md) for the full step-by-step build
 log, including two real performance/concurrency bugs found and fixed while
@@ -21,13 +22,20 @@ actually running the app (not just from tests).
 
 ## What it does
 
-- Predicts Home/Draw/Away for upcoming Premier League fixtures, with a
-  probability for each outcome (not just a single pick).
-- Trains and compares two models — logistic regression and XGBoost — on
-  identical, leakage-safe features, and reports which one is better
-  calibrated (not just more accurate).
-- Shows a calibration chart: when the model says "40% chance," did that
-  outcome happen about 40% of the time?
+- **Fixtures page** — Home/Draw/Away probabilities for the upcoming
+  matchweek (not just a single pick), plus the most likely score, each
+  team's recent form, and its current league position.
+- **Predict page** — make your own call on each upcoming match. Picks are
+  saved in your browser and graded against the real results once matches are
+  played, grouped by matchweek with a right–wrong record (e.g. 5–4) that
+  expands to the individual picks.
+- **Standings page** — the current league table.
+- **Two models, one served** — logistic regression and XGBoost are trained on
+  identical, leakage-safe features with a chronological split (never a random
+  shuffle), calibrated, and compared on a held-out season; the API serves the
+  one with the better log loss.
+- **Stays current on its own** — while running, the API pulls finished
+  matches, fixtures and standings from football-data.org in the background.
 
 ## By the numbers
 
@@ -59,7 +67,7 @@ actually running the app (not just from tests).
 flowchart LR
     subgraph sources [Data sources]
         CSV[football-data.co.uk<br/>10 historical seasons]
-        API[football-data.org<br/>live fixtures/results]
+        API[football-data.org<br/>live fixtures/results/standings]
     end
 
     subgraph db [Postgres — hosted]
@@ -70,11 +78,11 @@ flowchart LR
 
     ML[ml/train.py + evaluate.py<br/>logreg + XGBoost, calibrated]
     REGISTRY[ml/model_registry.py]
-    FASTAPI[FastAPI<br/>/matches /predict /calibration]
-    UI[Frontend<br/>fixture list + calibration chart]
+    FASTAPI[FastAPI<br/>/matches /predict /standings /results]
+    UI[Frontend<br/>fixtures, predict, standings]
 
     CSV -- etl/load_historical_csv.py --> MATCHES
-    API -- etl/fetch_live_data.py --> MATCHES
+    API -- "etl/fetch_live_data.py<br/>(also run by the API on a timer)" --> MATCHES
     MATCHES --> VIEWS
     VIEWS -- SELECT --> ML
     ML --> REGISTRY
@@ -93,7 +101,7 @@ for how that's enforced.
 ## Tech stack
 
 Postgres (hosted — Neon or Supabase) · Python (pandas, scikit-learn, XGBoost)
-· FastAPI · plain HTML/CSS/JS + Chart.js · Docker
+· FastAPI · plain HTML/CSS/JS · Docker · GitHub Actions
 
 ## Setup
 
@@ -142,7 +150,8 @@ docker compose up api
 uvicorn api.main:app --reload
 ```
 
-Either way, visit **http://localhost:8000/** for the full demo. The raw API
+Either way, visit **http://localhost:8000/** for the full demo (Fixtures,
+Predict and Standings pages). The raw API
 is also there: `/matches`, `/predict?fixture_id=...`, `/standings`,
 `/results?season=...`, `/health`.
 
@@ -151,6 +160,11 @@ While it runs, the API refreshes live data by itself (on startup, then every
 `FOOTBALL_DATA_ORG_API_KEY`): finished matches move into `matches`, upcoming
 fixtures and standings update, and the Predict page's saved picks pick up
 the new results. No need to re-run `etl/fetch_live_data.py` by hand.
+
+The frontend calls the API on its own origin, so it works wherever the
+backend serves it. If you host the frontend somewhere else (e.g. GitHub
+Pages), set `API_BASE` in [frontend/config.js](frontend/config.js) to the
+backend's full URL.
 
 ## Deployment (Render)
 
@@ -170,9 +184,10 @@ that's never seen this codebase before.
    access private repos once you authorize it during sign-in).
 3. Render should auto-detect the Dockerfile; if it asks for a path, point it
    at `api/Dockerfile` with build context `.` (the repo root — the Dockerfile
-   `COPY`s from `ml/`, `api/`, `reports/`, `frontend/` relative to root).
+   `COPY`s from `ml/`, `etl/`, `api/`, `frontend/` relative to root).
 4. **Environment** tab → add `DATABASE_URL` (same connection string as your
-   local `.env`) and, optionally, `FOOTBALL_DATA_ORG_API_KEY`. Don't set
+   local `.env` — use the provider's *session pooler* string) and, to enable
+   the automatic live-data refresh, `FOOTBALL_DATA_ORG_API_KEY`. Don't set
    `PORT` — Render supplies its own and `entrypoint.sh` reads it.
 5. Pick the **Free** instance type and click **Create Web Service**. First
    build takes a few minutes (installing pandas/scikit-learn/XGBoost);
@@ -214,7 +229,17 @@ secret**, name `DATABASE_URL`, value your hosted Postgres connection string
   yet backfilled by the live API this preseason) have no rolling form until
   they accumulate tracked matches — shown as NULL, not a fabricated guess.
 - **Free-tier hosting sleeps when idle** — see "Deployment" above for what
-  that means for the first request after a lull.
+  that means for the first request after a lull. The background refresh only
+  runs while the service is awake.
+- **Free-tier databases pause after inactivity** (Supabase, Neon) and, on
+  some plans, are eventually deleted — the app can't start until the
+  database is restored.
+- **One database, several environments.** A laptop and a deployed container
+  can share one database, and each registers its own model file at its own
+  path. The API serves the active model, and if that file isn't on the
+  current machine it falls back to the best registered model that is.
+- **Predictions you save are per-browser.** They live in `localStorage`, not
+  in an account, so they don't follow you to another browser or device.
 
 ## License
 

@@ -1,8 +1,8 @@
 """
 Evaluates the logreg and xgboost models trained by ml/train.py on the held-out
 test season (2019-2020, never touched during training or calibration),
-writing a comparison report and the underlying calibration-curve data for
-the frontend's calibration chart.
+writing a comparison report and the underlying calibration-curve data
+(predicted probability vs. actual outcome frequency) for offline analysis.
 
 Usage:
     python ml/evaluate.py
@@ -36,7 +36,7 @@ def brier_score_multiclass(y_true: np.ndarray, y_proba: np.ndarray, n_classes: i
 def calibration_bins(y_true_binary: np.ndarray, y_proba: np.ndarray, n_bins: int) -> list[dict]:
     """Buckets predictions into n_bins equal-width probability ranges and
     reports, per bin, the mean predicted probability vs. the actual
-    frequency of the outcome — the data a calibration chart plots."""
+    frequency of the outcome — the data a calibration curve plots."""
     bin_edges = np.linspace(0, 1, n_bins + 1)
     bin_indices = np.digitize(y_proba, bin_edges[1:-1])
 
@@ -95,8 +95,7 @@ def render_report(results: dict, result_classes: list[str]) -> str:
         "",
         "Lower is better for log loss and Brier score. Full calibration-curve "
         "data (predicted probability vs. actual outcome frequency, per class, "
-        "per model) is in `calibration_data.json` in this directory — that's "
-        "what the frontend's calibration chart plots.",
+        "per model) is in `calibration_data.json` in this directory.",
     ]
     return "\n".join(lines) + "\n"
 

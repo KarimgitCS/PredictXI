@@ -1,8 +1,8 @@
 -- One row per prediction made, tied to exactly one of a fixture (a future
 -- match, for live serving) or a match (a historical match, for backtesting).
 -- actual_outcome starts NULL and is backfilled once the match completes —
--- comparing it against prob_home/prob_draw/prob_away over many rows is what
--- the frontend's calibration chart is built from.
+-- comparing it against prob_home/prob_draw/prob_away over many rows lets
+-- calibration be checked against real results.
 
 CREATE TABLE predictions (
     prediction_id SERIAL PRIMARY KEY,

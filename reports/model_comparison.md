@@ -9,4 +9,4 @@ Evaluated on the held-out test season (2019-2020), never seen during training or
 | Brier score (multiclass) | 0.6101 | 0.6103 |
 | Test samples | 380 | 380 |
 
-Lower is better for log loss and Brier score. Full calibration-curve data (predicted probability vs. actual outcome frequency, per class, per model) is in `calibration_data.json` in this directory — that's what the frontend's calibration chart plots.
+Lower is better for log loss and Brier score. Full calibration-curve data (predicted probability vs. actual outcome frequency, per class, per model) is in `calibration_data.json` in this directory.
