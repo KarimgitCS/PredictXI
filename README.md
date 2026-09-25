@@ -2,11 +2,10 @@
 
 [![Tests](https://github.com/KarimgitCS/PredictXI/actions/workflows/tests.yml/badge.svg)](https://github.com/KarimgitCS/PredictXI/actions/workflows/tests.yml)
 
-<!-- TODO once deployed: replace this line with
-**[Live demo](https://your-app.onrender.com)** — see "Deployment" below.
-Render free tier sleeps after 15 min idle; the first request after that
-wakes the container and retrains the model (~10-20s), then it's normal
-speed. -->
+**[Live demo](https://predictxi-w7ki.onrender.com)** — hosted on Render's
+free tier (see "Deployment" below). The app pings itself to stay awake; if it
+ever does sleep, the first request wakes it and retrains the model (~10–20s),
+then it's normal speed.
 
 Premier League match outcome predictor (Home / Draw / Away) with calibrated
 probabilities, comparing logistic regression against XGBoost. Feature
